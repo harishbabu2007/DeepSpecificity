@@ -1,0 +1,144 @@
+import os
+import wandb
+import torch
+import torch.nn.functional as F
+
+from tqdm import tqdm
+from torch.utils.data import DataLoader
+
+from config import *
+from pdna_dataset import PDNADataset
+
+from architecture.model import MainModel
+from losses import masked_ppm_loss
+
+from utils import split_dna_features
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+os.makedirs("checkpoints", exist_ok=True)
+
+wandb.init(
+    project="ProteinDNA_PWM",
+    config={
+        "batch_size": BATCH_SIZE,
+        "epochs": EPOCHS,
+        "lr": LR,
+        "weight_decay": WEIGHT_DECAY,
+    },
+)
+
+train_dataset = PDNADataset(data_dir=DATA_RAW_NPZ)
+
+train_loader = DataLoader(
+    dataset=train_dataset,
+    batch_size=BATCH_SIZE,
+    shuffle=True,
+    collate_fn=lambda batch: batch,
+)
+
+model = MainModel(
+    len_dna_features=DNA_FEATURE_DIM,
+    len_prot_features=PROTEIN_FEATURE_DIM,
+    d_model=D_MODEL,
+    n_head_dna=N_HEAD_DNA,
+    n_enc_dna=N_ENC_DNA,
+    n_head_prot=N_HEAD_PROT,
+    n_enc_prot=N_ENC_PROT,
+    n_cross_att_heads=N_CROSS_HEADS,
+    n_enc_pwm=N_ENC_PWM,
+    n_head_pwm=N_HEAD_PWM
+).to(device)
+
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+
+num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"Trainable parameters: " f"{num_params:,}")
+
+
+best_loss = float("inf")
+
+for epoch in range(EPOCHS):
+    model.train()
+
+    running_loss = 0.0
+    pbar = tqdm(train_loader)
+
+    for batch in pbar:
+        optimizer.zero_grad()
+
+        batch_loss = 0.0
+
+        for item in batch:
+            protein_features = item["protein_features"].to(device)
+            dna_features = item["dna_features"].to(device)
+
+            dna_fwd, dna_rc = split_dna_features(dna_features)
+
+            protein_features = protein_features.unsqueeze(0)
+            dna_fwd = dna_fwd.unsqueeze(0)
+            dna_rc = dna_rc.unsqueeze(0)
+
+            pred_fwd = model(dna_fwd, protein_features)
+            pred_rc = model(dna_rc, protein_features)
+
+            loss_fwd = masked_ppm_loss(
+                pred_fwd,
+                item["target_pwm_forward"].to(device),
+                item["alignment_mask_forward"].to(device),
+            )
+
+            loss_rc = masked_ppm_loss(
+                pred_rc,
+                item["target_pwm_reverse"].to(device),
+                item["alignment_mask_reverse"].to(device),
+            )
+
+            loss = (loss_fwd + loss_rc) / 2
+
+            batch_loss += loss
+
+        batch_loss = batch_loss / len(batch)
+
+        batch_loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+
+        running_loss += batch_loss.item()
+
+        pbar.set_description(f"Epoch {epoch+1} Loss {batch_loss.item():.6f}")
+
+    epoch_loss = running_loss / len(train_loader)
+
+    wandb.log({"epoch": epoch + 1, "train_loss": epoch_loss})
+    print(f"Epoch {epoch+1}/{EPOCHS} " f"Loss={epoch_loss:.6f}")
+
+    torch.save(
+        {
+            "epoch": epoch + 1,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": epoch_loss,
+        },
+        "./checkpoints/latest_model.pt",
+    )
+
+    if epoch_loss < best_loss:
+        best_loss = epoch_loss
+
+        torch.save(
+            {
+                "epoch": epoch + 1,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "loss": best_loss
+            },
+            "./checkpoints/best_model.pt"
+        )
+
+        print(
+            f"Best model saved "
+            f"(loss={best_loss:.6f})"
+        )
+
+wandb.finish()
