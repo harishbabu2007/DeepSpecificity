@@ -150,7 +150,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, jaspar_indices):
 
     if pwm_matrix is None:
         raise StructureRejected(
-            f"No matching PWM matrix found across JASPAR, HOCOMOCO, or CIS-BP for {pdb_id}"
+            f"No matching PWM matrix found across JASPAR, HOCOMOCO, CIS-BP or UNIPROBE for {pdb_id}"
         )
     # --- END FALLBACK CHECK BLOCK ---
 
