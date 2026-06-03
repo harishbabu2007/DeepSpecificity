@@ -1,4 +1,4 @@
-name: nampnn
+name: deep-specificity
 channels:
   - defaults
 dependencies:
