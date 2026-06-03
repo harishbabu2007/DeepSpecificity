@@ -6,13 +6,13 @@ import time
 import numpy as np
 
 from tqdm import tqdm
-from pdb_parser import load_and_validate, StructureRejected
-from coordinate_utils import compute_complex_centroid
-from dna_features import generate_dna_features
-from protein_features import generate_protein_features
-from bond_matrix import generate_bond_matrix
-from npz_writer import save_npz, build_output_path
-from get_pwm import (
+from .pdb_parser import load_and_validate, StructureRejected
+from .coordinate_utils import compute_complex_centroid
+from .dna_features import generate_dna_features
+from .protein_features import generate_protein_features
+from .bond_matrix import generate_bond_matrix
+from .npz_writer import save_npz, build_output_path
+from .get_pwm import (
     build_jaspar_index,
     get_motifs_for_pdb,
     select_best_motif,

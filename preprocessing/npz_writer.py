@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from constants import STORE_DTYPE_FEATURES, STORE_DTYPE_BOND_MATRIX
+from .constants import STORE_DTYPE_FEATURES, STORE_DTYPE_BOND_MATRIX
 
 
 def save_npz(

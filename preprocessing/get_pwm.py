@@ -82,7 +82,7 @@ def extract_pwm_matrix(motif):
         return None
 
 
-#fallbacks
+# fallbacks
 
 def parse_raw_fallback_file(file_path, is_cisbp=False):
     """Parses plain text PWM rows and transforms them into log-odds log(p/0.25) format."""
@@ -119,8 +119,60 @@ def parse_raw_fallback_file(file_path, is_cisbp=False):
     return log_odds
 
 
+def parse_uniprobe_file(file_path):
+    """Parses horizontal UniPROBE format (4 rows x L cols) into vertical log-odds (L, 4) format."""
+    matrix_rows = []
+    try:
+        with open(file_path, "r") as f:
+            for line in f:
+                line_str = line.strip()
+                if not line_str or line_str.startswith("#"):
+                    continue
+                parts = line_str.split()
+                if not parts:
+                    continue
+
+                # Strip out explicit row identifiers if present (e.g., 'A:', 'C\t')
+                if parts[0].rstrip(":").upper() in ["A", "C", "G", "T"]:
+                    parts = parts[1:]
+
+                try:
+                    vals = [float(x) for x in parts]
+                    if vals:
+                        matrix_rows.append(vals)
+                except ValueError:
+                    continue
+    except Exception:
+        return None
+
+    mat_arr = np.array(matrix_rows, dtype=np.float32)
+    if mat_arr.size == 0:
+        return None
+
+    # UniPROBE files are horizontal: 4 rows (A, C, G, T) by L columns.
+    # We transpose it to become vertical: L rows by 4 columns.
+    if mat_arr.shape[0] == 4 and mat_arr.shape[1] != 4:
+        mat_arr = mat_arr.T
+    elif mat_arr.shape[0] != 4 and mat_arr.shape[1] == 4:
+        pass  # Already in (L, 4) format
+    else:
+        return None  # Matrix does not match valid configurations
+
+    # Convert to standard PPM matrix formatting
+    row_sums = mat_arr.sum(axis=1, keepdims=True)
+    ppm = np.divide(mat_arr, row_sums, out=np.zeros_like(mat_arr), where=row_sums != 0)
+
+    # Match the pipeline's exact pseudocount math & convert to Log-Odds
+    ppm = (ppm * 100 + 0.5) / (100 + 2.0)
+    log_odds = np.log2(ppm / 0.25)
+    return log_odds
+
+
 def check_local_database_fallbacks(
-    pdb_id, hocomoco_dir="../data/motifs/hocomoco", cisbp_dir="../data/motifs/cisbp"
+    pdb_id,
+    hocomoco_dir="../data/motifs/hocomoco",
+    cisbp_dir="../data/motifs/cisbp",
+    uniprobe_dir="data/motifs/uniprobe",
 ):
     """Scans local folders for file matching by Gene Name or ID prefix."""
     _, gene_symbols = get_metadata_from_pdb(pdb_id)
@@ -146,5 +198,25 @@ def check_local_database_fallbacks(
                 if fname.upper().startswith(gene):
                     full_path = os.path.join(cisbp_dir, fname)
                     return parse_raw_fallback_file(full_path, is_cisbp=True)
+
+    # STAGE 3: Look inside UniPROBE folder (Recursively scans ALL nested subfolders)
+    if os.path.exists(uniprobe_dir):
+        for root, dirs, files in os.walk(uniprobe_dir):
+            for gene in gene_symbols:
+                for fname in files:
+                    fname_upper = fname.upper()
+                    # Skip Reverse Complement files (.RC.) to ensure forward-strand orientation matches
+                    if ".RC." in fname_upper:
+                        continue
+
+                    # Match if file starts with the Gene Symbol (e.g. LUX_015681.pwm matches gene "LUX")
+                    if fname_upper.startswith(f"{gene}_") or fname_upper.startswith(
+                        gene
+                    ):
+                        if fname_upper.endswith(".PWM"):
+                            full_path = os.path.join(root, fname)
+                            mat = parse_uniprobe_file(full_path)
+                            if mat is not None:
+                                return mat
 
     return None

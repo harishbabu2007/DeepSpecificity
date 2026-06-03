@@ -1,6 +1,6 @@
 import numpy as np
 
-from constants import COORDINATE_SCALE_FACTOR
+from .constants import COORDINATE_SCALE_FACTOR
 
 
 def compute_complex_centroid(protein_residues, dna_pairs):
