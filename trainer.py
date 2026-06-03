@@ -19,7 +19,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 os.makedirs("checkpoints", exist_ok=True)
 
 wandb.init(
-    project="ProteinDNA_PWM",
+    project="Deep-Specificity",
     config={
         "batch_size": BATCH_SIZE,
         "epochs": EPOCHS,
