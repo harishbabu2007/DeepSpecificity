@@ -16,6 +16,8 @@ def masked_ppm_loss(logits, target_pwm, mask):
     target_ppm = pwm_to_ppm(target_pwm)
 
     log_probs = F.log_softmax(logits.squeeze(0), dim=-1)
+
+    target_ppm = target_ppm[mask]
     log_probs = log_probs[mask]
 
     loss = -(target_ppm * log_probs).sum(dim=-1)
