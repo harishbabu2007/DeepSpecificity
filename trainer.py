@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from config import *
 from pdna_dataset import PDNADataset
 
-from architecture.model import MainModel
+from architecture.model import DeepSpecificity
 from losses import masked_ppm_loss
 
 from utils import split_dna_features
@@ -37,7 +37,7 @@ train_loader = DataLoader(
     collate_fn=lambda batch: batch,
 )
 
-model = MainModel(
+model = DeepSpecificity(
     len_dna_features=DNA_FEATURE_DIM,
     len_prot_features=PROTEIN_FEATURE_DIM,
     d_model=D_MODEL,
@@ -49,6 +49,7 @@ model = MainModel(
     n_enc_pwm=N_ENC_PWM,
     n_head_pwm=N_HEAD_PWM
 ).to(device)
+model = torch.compile(model)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 

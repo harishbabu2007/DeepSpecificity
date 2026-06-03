@@ -3,7 +3,7 @@ import torch
 from architecture.embedding import ProteinEncoderWithPE, DNAEncoderWithPE 
 
 
-class MainModel(nn.Module):
+class DeepSpecificity(nn.Module):
     def __init__(self,
                  len_dna_features: int,
                  len_prot_features: int,
@@ -16,7 +16,7 @@ class MainModel(nn.Module):
                  n_enc_pwm: int,
                  n_head_pwm: int):
 
-        super(MainModel, self).__init__()
+        super(DeepSpecificity, self).__init__()
 
         self.protein_embedder = ProteinEncoderWithPE(len_prot_features, d_model)
         self.dna_embedder = DNAEncoderWithPE(len_dna_features, d_model)
