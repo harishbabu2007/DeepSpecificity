@@ -15,6 +15,7 @@ from losses import masked_ppm_loss
 from utils import split_dna_features
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+torch.set_float32_matmul_precision("high")
 
 os.makedirs("checkpoints", exist_ok=True)
 
