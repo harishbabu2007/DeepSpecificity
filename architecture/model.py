@@ -73,8 +73,6 @@ class MainModel(nn.Module):
             key=dna_before_cross,
             value=dna_before_cross
         )
-        protein_embedding = protein_embedding + protein_context
-
         protein_embedding = self.protein_cross_norm(
             protein_embedding + protein_context
         )
@@ -84,8 +82,6 @@ class MainModel(nn.Module):
             key=protein_before_cross,
             value=protein_before_cross
         )
-        dna_embedding = dna_embedding + dna_context
-
         dna_embedding = self.dna_cross_norm(
             dna_embedding + dna_context
         )
