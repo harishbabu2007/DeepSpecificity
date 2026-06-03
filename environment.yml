@@ -1,0 +1,17 @@
+name: nampnn
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - cmake
+  - ipykernel
+  - pytorch
+  - prody
+  - openbabel
+  - pyarrow
+  - pandas
+  - reduce
+  - pyjaspar
+variables:
+  PYTHONPATH: /home/harish/Code/NA-MPNN-ImP/pdbx
+prefix: /home/harish/miniconda3/envs/nampnn
