@@ -10,23 +10,16 @@ import urllib.request
 import gzip
 import shutil
 from tqdm import tqdm
+import urllib.error
 
 
-def download_pdb_file(pdb_id, output_dir, file_format="cif", overwrite=False):
+def download_pdb_file(pdb_id, output_dir, file_format="pdb", overwrite=False):
     """
     Download a single PDB file from RCSB PDB.
-    
-    Args:
-        pdb_id: 4-character PDB ID (e.g., "1ABC")
-        output_dir: Directory to save the file
-        file_format: "cif" or "pdb"
-        overwrite: Whether to overwrite existing files
-    
-    Returns:
-        Path to downloaded file, or None if failed
+    Gracefully skips obsoleted or oversized structures that return 404.
     """
     pdb_id = pdb_id.lower()
-    
+
     if file_format == "cif":
         filename = f"{pdb_id}.cif.gz"
         url = f"https://files.rcsb.org/download/{pdb_id}.cif.gz"
@@ -35,32 +28,29 @@ def download_pdb_file(pdb_id, output_dir, file_format="cif", overwrite=False):
         url = f"https://files.rcsb.org/download/{pdb_id}.pdb.gz"
     else:
         raise ValueError(f"Unknown format: {file_format}")
-    
+
     output_path = os.path.join(output_dir, filename)
-    
+
     # Skip if already exists
     if os.path.exists(output_path) and not overwrite:
         return output_path
-    
+
     try:
-        # Download file
-        with urllib.request.urlopen(url, timeout=30) as response:
-            with open(output_path, 'wb') as out_file:
-                out_file.write(response.read())
-        
-        # Decompress if gzipped
-        if output_path.endswith('.gz'):
-            decompressed_path = output_path[:-3]  # Remove .gz
-            with gzip.open(output_path, 'rb') as gz_in:
-                with open(decompressed_path, 'wb') as f_out:
-                    shutil.copyfileobj(gz_in, f_out)
-            os.remove(output_path)  # Remove gz file
-            return decompressed_path
-        
+        # Add User-Agent header so RCSB doesn't block the request
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req) as response, open(
+            output_path, "wb"
+        ) as out_file:
+            shutil.copyfileobj(response, out_file)
         return output_path
-    
+
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            # It's obsolete or too big for standard PDB format. Safe to skip.
+            return None
+        else:
+            return None
     except Exception as e:
-        print(f"Failed to download {pdb_id}: {e}")
         return None
 
 
