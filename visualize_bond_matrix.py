@@ -101,10 +101,10 @@ def main(npz_path):
 
     plt.tight_layout()
 
-    os.makedirs("../results", exist_ok=True)
-    plt.savefig(f"../results/{pdb_id}_bond_matrix.png", dpi=300, bbox_inches="tight")
+    os.makedirs("./results", exist_ok=True)
+    plt.savefig(f"./results/{pdb_id}_bond_matrix.png", dpi=300, bbox_inches="tight")
 
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":
