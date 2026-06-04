@@ -99,24 +99,20 @@ def download_pdb_list(pdb_ids, output_dir, file_format="cif", max_workers=4):
 def load_pdb_ids_from_split(split_file):
     """
     Load PDB IDs from NA-MPNN split file.
-    
-    Args:
-        split_file: Path to JSON split file (e.g., splits/design_train.json)
-    
-    Returns:
-        List of PDB IDs
     """
-    with open(split_file, 'r') as f:
+    with open(split_file, "r") as f:
         data = json.load(f)
 
+    pdb_ids = []
+    # specificity_train.json structure: [ ["1a02", [motifs]], ["scaffold_X", [...]] ]
+    for item in data:
+        if isinstance(item, list) and len(item) >= 1:
+            identifier = str(item[0])
+            # Only keep valid 4-character PDB IDs (skips 'scaffold_...' sequences)
+            if len(identifier) == 4:
+                pdb_ids.append(identifier.lower())
 
-    print(data)
-
-    # sys.exit("break")
-    
-    # Extract PDB IDs (first 4 characters of keys)
-    pdb_ids = list(set([key[:4].lower() for key in data]))
-    return pdb_ids
+    return list(set(pdb_ids))
 
 
 if __name__ == "__main__":

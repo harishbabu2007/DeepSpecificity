@@ -1,91 +1,10 @@
 import os
-import requests
 import numpy as np
 from pyjaspar import jaspardb
 
 
-def get_metadata_from_pdb(pdb_id):
-    """Fetches UniProt IDs and Gene Symbols from the PDBe API."""
-    url = f"https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id.lower()}"
-    uniprot_ids, gene_symbols = [], []
-    try:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data:
-                pdb_key = list(data.keys())[0]
-                uniprot_data = data[pdb_key].get("UniProt", {})
-                for up_id, info in uniprot_data.items():
-                    uniprot_ids.append(up_id)
-                    if "identifier" in info:
-                        gene = info["identifier"].split("_")[0]
-                        gene_symbols.append(gene.upper())
-    except Exception:
-        pass
-    return list(set(uniprot_ids)), list(set(gene_symbols))
-
-
-def build_jaspar_index(release="JASPAR2024"):
-    """Builds the offline lookup index across ALL collections and ALL historic versions."""
-    jdb_obj = jaspardb(release=release)
-    all_motifs = jdb_obj.fetch_motifs(all=True, all_versions=True)
-
-    uniprot_to_motifs = {}
-    gene_to_motifs = {}
-
-    for motif in all_motifs:
-        if motif.acc:
-            for up_id in motif.acc:
-                uniprot_to_motifs.setdefault(up_id, []).append(motif)
-        if motif.name:
-            gene_to_motifs.setdefault(motif.name.upper(), []).append(motif)
-
-    return {"by_uniprot": uniprot_to_motifs, "by_gene": gene_to_motifs}
-
-
-def get_motifs_for_pdb(pdb_id, indices):
-    """Finds candidate motifs for a PDB using the pre-built indices."""
-    uniprot_ids, gene_symbols = get_metadata_from_pdb(pdb_id)
-    matched_motifs = []
-
-    for up_id in uniprot_ids:
-        if up_id in indices["by_uniprot"]:
-            matched_motifs.extend(indices["by_uniprot"][up_id])
-
-    if not matched_motifs:
-        for gene in gene_symbols:
-            if gene in indices["by_gene"]:
-                matched_motifs.extend(indices["by_gene"][gene])
-
-    unique_motifs = {m.matrix_id: m for m in matched_motifs}.values()
-    return list(unique_motifs)
-
-
-def select_best_motif(motifs, target_length=7):
-    """Picks the motif closest to the target length to resolve ties."""
-    if not motifs:
-        return None
-    return sorted(motifs, key=lambda m: (abs(len(m) - target_length), m.matrix_id))[0]
-
-
-def extract_pwm_matrix(motif):
-    """Converts a JASPAR motif into a Numpy Array of shape (L, 4)."""
-    try:
-        ppm = motif.counts.normalize(pseudocounts=0.5)
-        pwm_dict = ppm.log_odds()
-        pwm_matrix = np.array(
-            [pwm_dict["A"], pwm_dict["C"], pwm_dict["G"], pwm_dict["T"]],
-            dtype=np.float32,
-        )
-        return pwm_matrix.T
-    except Exception:
-        return None
-
-
-# fallbacks
-
 def parse_raw_fallback_file(file_path, is_cisbp=False):
-    """Parses plain text PWM rows and transforms them into log-odds log(p/0.25) format."""
+    """Parses plain text PWM rows into log-odds log(p/0.25) format."""
     matrix = []
     try:
         with open(file_path, "r") as f:
@@ -99,9 +18,9 @@ def parse_raw_fallback_file(file_path, is_cisbp=False):
 
                 vals = [float(x) for x in parts]
                 if is_cisbp and len(vals) == 5:
-                    matrix.append(vals[1:])  # Drop position tracking index column
+                    matrix.append(vals[1:])  # Drop index column
                 elif not is_cisbp and len(vals) == 4:
-                    matrix.append(vals)  # HOCOMOCO layout rows
+                    matrix.append(vals)
     except Exception:
         return None
 
@@ -109,18 +28,15 @@ def parse_raw_fallback_file(file_path, is_cisbp=False):
     if mat_arr.size == 0:
         return None
 
-    # Convert raw counts/probabilities into a uniform Position Probability Matrix (PPM)
     row_sums = mat_arr.sum(axis=1, keepdims=True)
     ppm = np.divide(mat_arr, row_sums, out=np.zeros_like(mat_arr), where=row_sums != 0)
 
-    # Apply a 0.5 pseudocount correction adjustment and convert to standard Log-Odds
     ppm = (ppm * 100 + 0.5) / (100 + 2.0)
-    log_odds = np.log2(ppm / 0.25)
-    return log_odds
+    return np.log2(ppm / 0.25)
 
 
 def parse_uniprobe_file(file_path):
-    """Parses horizontal UniPROBE format (4 rows x L cols) into vertical log-odds (L, 4) format."""
+    """Parses horizontal UniPROBE format into vertical log-odds format."""
     matrix_rows = []
     try:
         with open(file_path, "r") as f:
@@ -132,7 +48,6 @@ def parse_uniprobe_file(file_path):
                 if not parts:
                     continue
 
-                # Strip out explicit row identifiers if present (e.g., 'A:', 'C\t')
                 if parts[0].rstrip(":").upper() in ["A", "C", "G", "T"]:
                     parts = parts[1:]
 
@@ -149,74 +64,89 @@ def parse_uniprobe_file(file_path):
     if mat_arr.size == 0:
         return None
 
-    # UniPROBE files are horizontal: 4 rows (A, C, G, T) by L columns.
-    # We transpose it to become vertical: L rows by 4 columns.
     if mat_arr.shape[0] == 4 and mat_arr.shape[1] != 4:
         mat_arr = mat_arr.T
     elif mat_arr.shape[0] != 4 and mat_arr.shape[1] == 4:
-        pass  # Already in (L, 4) format
+        pass
     else:
-        return None  # Matrix does not match valid configurations
+        return None
 
-    # Convert to standard PPM matrix formatting
     row_sums = mat_arr.sum(axis=1, keepdims=True)
     ppm = np.divide(mat_arr, row_sums, out=np.zeros_like(mat_arr), where=row_sums != 0)
 
-    # Match the pipeline's exact pseudocount math & convert to Log-Odds
     ppm = (ppm * 100 + 0.5) / (100 + 2.0)
-    log_odds = np.log2(ppm / 0.25)
-    return log_odds
+    return np.log2(ppm / 0.25)
 
 
-def check_local_database_fallbacks(
+def get_pwm_matrix_from_annotations(
     pdb_id,
-    hocomoco_dir="../data/motifs/hocomoco",
-    cisbp_dir="../data/motifs/cisbp",
+    annotations,
+    hocomoco_dir="data/motifs/hocomoco",
+    cisbp_dir="data/motifs/cisbp",
     uniprobe_dir="data/motifs/uniprobe",
 ):
-    """Scans local folders for file matching by Gene Name or ID prefix."""
-    _, gene_symbols = get_metadata_from_pdb(pdb_id)
-    if not gene_symbols:
+    """
+    Reads the EXACT matrix file specified by specificity_train.json.
+    """
+    pdb_id = pdb_id.lower()
+    if pdb_id not in annotations or not annotations[pdb_id]:
         return None
 
-    # 1. Look inside HOCOMOCO folder (e.g. AHR_HUMAN.H1MO.0.8.pwm)
-    if os.path.exists(hocomoco_dir):
-        hocomoco_files = os.listdir(hocomoco_dir)
-        for gene in gene_symbols:
-            for fname in hocomoco_files:
-                if fname.upper().startswith(f"{gene}_"):
-                    full_path = os.path.join(hocomoco_dir, fname)
-                    return parse_raw_fallback_file(full_path, is_cisbp=False)
+    motifs_list = annotations[pdb_id]
+    jdb_obj = jaspardb(release="JASPAR2024")
 
-    # 2. Look inside CIS-BP folder (e.g. M00001_3.10.txt)
-    # Without a map file, it matches if a PDB identifier or gene name aligns with target prefixes
-    if os.path.exists(cisbp_dir):
-        cisbp_files = os.listdir(cisbp_dir)
-        # Check if any gene prefix matches the naming variations
-        for gene in gene_symbols:
-            for fname in cisbp_files:
-                if fname.upper().startswith(gene):
-                    full_path = os.path.join(cisbp_dir, fname)
-                    return parse_raw_fallback_file(full_path, is_cisbp=True)
+    # Data structure: [ [ ["JASPAR", "MA0152.1.jaspar"], ["HOCOMOCO", "NFAC2_HUMAN.H11MO.0.B"] ] ]
+    for site_motifs in motifs_list:
+        for motif_info in site_motifs:
+            if len(motif_info) != 2:
+                continue
 
-    # STAGE 3: Look inside UniPROBE folder (Recursively scans ALL nested subfolders)
-    if os.path.exists(uniprobe_dir):
-        for root, dirs, files in os.walk(uniprobe_dir):
-            for gene in gene_symbols:
-                for fname in files:
-                    fname_upper = fname.upper()
-                    # Skip Reverse Complement files (.RC.) to ensure forward-strand orientation matches
-                    if ".RC." in fname_upper:
-                        continue
+            db_name, motif_id = motif_info
 
-                    # Match if file starts with the Gene Symbol (e.g. LUX_015681.pwm matches gene "LUX")
-                    if fname_upper.startswith(f"{gene}_") or fname_upper.startswith(
-                        gene
-                    ):
-                        if fname_upper.endswith(".PWM"):
-                            full_path = os.path.join(root, fname)
-                            mat = parse_uniprobe_file(full_path)
-                            if mat is not None:
-                                return mat
+            if db_name == "JASPAR":
+                clean_id = motif_id.replace(".jaspar", "")
+                try:
+                    motif = jdb_obj.fetch_motif_by_id(clean_id)
+                    if motif:
+                        ppm = motif.counts.normalize(pseudocounts=0.5)
+                        pwm_dict = ppm.log_odds()
+                        pwm_matrix = np.array(
+                            [
+                                pwm_dict["A"],
+                                pwm_dict["C"],
+                                pwm_dict["G"],
+                                pwm_dict["T"],
+                            ],
+                            dtype=np.float32,
+                        )
+                        return pwm_matrix.T
+                except Exception:
+                    continue
+
+            elif db_name == "HOCOMOCO":
+                file_path = os.path.join(hocomoco_dir, f"{motif_id}.pwm")
+                mat = parse_raw_fallback_file(file_path, is_cisbp=False)
+                if mat is not None:
+                    return mat
+
+            elif db_name == "CIS-BP":
+                file_path = os.path.join(cisbp_dir, "pwms", f"{motif_id}.txt")
+                mat = parse_raw_fallback_file(file_path, is_cisbp=True)
+                if mat is not None:
+                    return mat
+
+            elif db_name == "UniPROBE":
+                if os.path.exists(uniprobe_dir):
+                    for root, dirs, files in os.walk(uniprobe_dir):
+                        for fname in files:
+                            if (
+                                motif_id in fname
+                                and fname.upper().endswith(".PWM")
+                                and ".RC." not in fname.upper()
+                            ):
+                                full_path = os.path.join(root, fname)
+                                mat = parse_uniprobe_file(full_path)
+                                if mat is not None:
+                                    return mat
 
     return None

@@ -6,19 +6,27 @@ import time
 import numpy as np
 
 from tqdm import tqdm
-from .pdb_parser import load_and_validate, StructureRejected
-from .coordinate_utils import compute_complex_centroid
-from .dna_features import generate_dna_features
-from .protein_features import generate_protein_features
-from .bond_matrix import generate_bond_matrix
-from .npz_writer import save_npz, build_output_path
-from .get_pwm import (
-    build_jaspar_index,
-    get_motifs_for_pdb,
-    select_best_motif,
-    extract_pwm_matrix,
-    check_local_database_fallbacks,
-)
+from pdb_parser import load_and_validate, StructureRejected
+from coordinate_utils import compute_complex_centroid
+from dna_features import generate_dna_features
+from protein_features import generate_protein_features
+from bond_matrix import generate_bond_matrix
+from npz_writer import save_npz, build_output_path
+from get_pwm import get_pwm_matrix_from_annotations
+import json
+
+def load_motif_annotations(json_path):
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    
+    annotations = {}
+    for item in data:
+        if isinstance(item, list) and len(item) >= 2:
+            pdb_id = str(item[0]).lower()
+            motifs = item[1]
+            if len(pdb_id) == 4 and motifs:
+                annotations[pdb_id] = motifs
+    return annotations
 
 def compute_ic(pwm_col, epsilon=1e-9):
     """Compute normalized Information Content (0.0 to 2.0 bits)."""
@@ -127,7 +135,7 @@ def hydrogenate_pdb(input_pdb, output_pdb):
     return output_pdb
 
 
-def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, jaspar_indices):
+def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations):
     """
     Process one PDB file, including PWM fetching.
     """
@@ -137,22 +145,12 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, jaspar_indices):
 
     # 1. Fetch PWM first (Fail fast if no ground truth exists for training)
     pwm_matrix = None
-    all_matches = get_motifs_for_pdb(pdb_id, jaspar_indices)
-
-    if all_matches:
-        chosen_motif = select_best_motif(all_matches, target_length=7)
-        pwm_matrix = extract_pwm_matrix(chosen_motif)
-
-    # --- FALLBACK CHECK BLOCK ---
-    if pwm_matrix is None:
-        # If JASPAR yields nothing, look up HOCOMOCO or CIS-BP directly
-        pwm_matrix = check_local_database_fallbacks(pdb_id)
+    pwm_matrix = get_pwm_matrix_from_annotations(pdb_id, annotations)
 
     if pwm_matrix is None:
         raise StructureRejected(
-            f"No matching PWM matrix found across JASPAR, HOCOMOCO, CIS-BP or UNIPROBE for {pdb_id}"
+            f"No valid ground-truth PWM available in annotations for {pdb_id}"
         )
-    # --- END FALLBACK CHECK BLOCK ---
 
     # Polite delay to prevent PDBe API throttling
     time.sleep(0.1)
@@ -267,14 +265,14 @@ def process_directory(pdb_dir, output_dir, hydrogenated_dir):
     rejection_log = []
 
     # Initialize the JASPAR index ONCE before the loop begins
-    print("Building JASPAR UniProt/Gene index...")
-    jaspar_indices = build_jaspar_index(release="JASPAR2024")
-    print("JASPAR index built successfully. Starting processing...\n")
+    print("Loading Motif Annotations from specificity_train.json...")
+    annotations = load_motif_annotations("../data/splits/specificity_train.json")
+    print(f"Loaded {len(annotations)} annotated structures.\n")
 
     for pdb_path in tqdm(pdb_files):
         try:
             # Pass the indices down to the single PDB processor
-            process_single_pdb(pdb_path, output_dir, hydrogenated_dir, jaspar_indices)
+            process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations)
             success += 1
 
         except StructureRejected as e:
