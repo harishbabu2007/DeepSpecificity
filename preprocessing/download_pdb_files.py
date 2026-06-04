@@ -15,16 +15,17 @@ import urllib.error
 
 def download_pdb_file(pdb_id, output_dir, file_format="pdb", overwrite=False):
     """
-    Download a single PDB file from RCSB PDB.
+    Download a single PDB file from RCSB PDB and decompress it.
     Gracefully skips obsoleted or oversized structures that return 404.
     """
     pdb_id = pdb_id.lower()
 
+    # Define the output filename WITHOUT .gz, but keep the download URL with .gz
     if file_format == "cif":
-        filename = f"{pdb_id}.cif.gz"
+        filename = f"{pdb_id}.cif"
         url = f"https://files.rcsb.org/download/{pdb_id}.cif.gz"
     elif file_format == "pdb":
-        filename = f"{pdb_id}.pdb.gz"
+        filename = f"{pdb_id}.pdb"
         url = f"https://files.rcsb.org/download/{pdb_id}.pdb.gz"
     else:
         raise ValueError(f"Unknown format: {file_format}")
@@ -38,10 +39,13 @@ def download_pdb_file(pdb_id, output_dir, file_format="pdb", overwrite=False):
     try:
         # Add User-Agent header so RCSB doesn't block the request
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req) as response, open(
-            output_path, "wb"
-        ) as out_file:
-            shutil.copyfileobj(response, out_file)
+
+        with urllib.request.urlopen(req) as response:
+            # Decompress the file stream on the fly and save as plain text!
+            with gzip.GzipFile(fileobj=response) as uncompressed:
+                with open(output_path, "wb") as out_file:
+                    shutil.copyfileobj(uncompressed, out_file)
+
         return output_path
 
     except urllib.error.HTTPError as e:
