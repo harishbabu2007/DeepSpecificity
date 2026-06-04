@@ -12,7 +12,7 @@ from dna_features import generate_dna_features
 from protein_features import generate_protein_features
 from bond_matrix import generate_bond_matrix
 from npz_writer import save_npz, build_output_path
-from get_pwm import get_pwm_matrix_from_annotations
+from get_pwm import get_hybrid_pwm, build_jaspar_index
 import json
 
 def load_motif_annotations(json_path):
@@ -135,7 +135,7 @@ def hydrogenate_pdb(input_pdb, output_pdb):
     return output_pdb
 
 
-def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations):
+def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jaspar_indices):
     """
     Process one PDB file, including PWM fetching.
     """
@@ -145,7 +145,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations):
 
     # 1. Fetch PWM first (Fail fast if no ground truth exists for training)
     pwm_matrix = None
-    pwm_matrix = get_pwm_matrix_from_annotations(pdb_id, annotations)
+    pwm_matrix = get_hybrid_pwm(pdb_id, annotations, jaspar_indices)
 
     if pwm_matrix is None:
         raise StructureRejected(
@@ -264,15 +264,18 @@ def process_directory(pdb_dir, output_dir, hydrogenated_dir):
 
     rejection_log = []
 
+    print("Building Offline JASPAR Index for Fallback Search...")
+    jaspar_indices = build_jaspar_index()
+
     # Initialize the JASPAR index ONCE before the loop begins
     print("Loading Motif Annotations from specificity_train.json...")
-    annotations = load_motif_annotations("../data/splits/specificity_train.json")
+    annotations = load_motif_annotations("../data/specificity_train.json")
     print(f"Loaded {len(annotations)} annotated structures.\n")
 
     for pdb_path in tqdm(pdb_files):
         try:
             # Pass the indices down to the single PDB processor
-            process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations)
+            process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jaspar_indices)
             success += 1
 
         except StructureRejected as e:

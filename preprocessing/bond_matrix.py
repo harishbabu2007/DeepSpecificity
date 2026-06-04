@@ -1,14 +1,14 @@
 import numpy as np
 
-from .constants import HBOND_MIN_DISTANCE, HBOND_MAX_DISTANCE, HBOND_MIN_ANGLE
+from constants import HBOND_MIN_DISTANCE, HBOND_MAX_DISTANCE, HBOND_MIN_ANGLE
 
-from .constants import PROTEIN_DONORS, PROTEIN_ACCEPTORS, DNA_DONORS, DNA_ACCEPTORS
+from constants import PROTEIN_DONORS, PROTEIN_ACCEPTORS, DNA_DONORS, DNA_ACCEPTORS
 
-from .constants import RESIDUE_BASE_CUTOFF
+from constants import RESIDUE_BASE_CUTOFF
 
-from .geometry import distance, calculate_hbond_angle
+from geometry import distance, calculate_hbond_angle
 
-from .hydrogen_builder import get_hydrogen_position
+from hydrogen_builder import get_hydrogen_position
 
 
 def get_atom_coord(residue, atom_name):

@@ -1,12 +1,12 @@
 import numpy as np
 
-from .constants import DNA_BACKBONE_ORDER, MAX_DNA_BASE_HEAVY_ATOMS, BASE_TO_INDEX
+from constants import DNA_BACKBONE_ORDER, MAX_DNA_BASE_HEAVY_ATOMS, BASE_TO_INDEX
 
-from .dna_definitions import BASE_HEAVY_ATOMS, BASE_NAME_MAP
+from dna_definitions import BASE_HEAVY_ATOMS, BASE_NAME_MAP
 
-from .geometry import pad_coordinate_list
+from geometry import pad_coordinate_list
 
-from .coordinate_utils import transform_coordinate
+from coordinate_utils import transform_coordinate
 
 
 def one_hot_base(base):
