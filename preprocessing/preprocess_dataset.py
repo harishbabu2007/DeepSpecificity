@@ -13,6 +13,7 @@ from .protein_features import generate_protein_features
 from .bond_matrix import generate_bond_matrix
 from .npz_writer import save_npz, build_output_path
 from .get_pwm import get_hybrid_pwm, build_jaspar_index
+from .constants import MAX_PROTEIN_LENGTH
 import json
 
 def load_motif_annotations(json_path):
@@ -171,6 +172,9 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
 
         protein_labels = build_protein_labels(protein_residues)
         dna_labels = build_dna_labels(dna_pairs)
+
+        if len(protein_labels) > MAX_PROTEIN_LENGTH:
+            raise StructureRejected(f"\nProtein in {pdb_id} longer than {MAX_PROTEIN_LENGTH}")
 
         # ---- DNA Alignment
         seq_fwd_5to3, seq_rev_5to3 = get_sequence_one_hot(dna_labels)
