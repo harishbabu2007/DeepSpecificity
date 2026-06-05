@@ -1,3 +1,6 @@
+POST_TRAIN = True
+POST_TRAIN_CHECKPOINT = "./checkpoints/best_model_v1.pt"
+
 EPOCHS = 200
 DATA_RAW_NPZ = './data/processed'
 D_MODEL = 256

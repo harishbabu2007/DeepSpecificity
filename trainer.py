@@ -54,6 +54,12 @@ model = torch.compile(model)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 
+if POST_TRAIN:
+    checkpoint = torch.load(POST_TRAIN_CHECKPOINT, map_location=device)
+
+    model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    
 num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Trainable parameters: " f"{num_params:,}")
 
