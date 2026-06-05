@@ -1,18 +1,18 @@
 from Bio.PDB import PDBParser
 from Bio.PDB.Polypeptide import is_aa
 
-from constants import (
+from .constants import (
     DNA_RESIDUES,
     REJECT_RESIDUES,
     REJECT_MULTI_MODEL,
     REJECT_ALTERNATE_LOCATIONS,
 )
 
-from dna_definitions import BASE_NAME_MAP, CANONICAL_PAIRS
-from dna_definitions import WC_PAIR_ATOMS
-from constants import WC_PAIR_DISTANCE_THRESHOLD
+from .dna_definitions import BASE_NAME_MAP, CANONICAL_PAIRS
+from .dna_definitions import WC_PAIR_ATOMS
+from .constants import WC_PAIR_DISTANCE_THRESHOLD
 
-from geometry import distance
+from .geometry import distance
 
 
 class StructureRejected(Exception):

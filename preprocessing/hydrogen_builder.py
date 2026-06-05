@@ -1,6 +1,6 @@
 import numpy as np
 
-from geometry import unit_vector
+from .geometry import unit_vector
 
 
 def get_existing_hydrogens(residue, donor_atom_name):

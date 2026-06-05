@@ -6,13 +6,13 @@ import time
 import numpy as np
 
 from tqdm import tqdm
-from pdb_parser import load_and_validate, StructureRejected
-from coordinate_utils import compute_complex_centroid
-from dna_features import generate_dna_features
-from protein_features import generate_protein_features
-from bond_matrix import generate_bond_matrix
-from npz_writer import save_npz, build_output_path
-from get_pwm import get_hybrid_pwm, build_jaspar_index
+from .pdb_parser import load_and_validate, StructureRejected
+from .coordinate_utils import compute_complex_centroid
+from .dna_features import generate_dna_features
+from .protein_features import generate_protein_features
+from .bond_matrix import generate_bond_matrix
+from .npz_writer import save_npz, build_output_path
+from .get_pwm import get_hybrid_pwm, build_jaspar_index
 import json
 
 def load_motif_annotations(json_path):
@@ -144,13 +144,13 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
     pdb_id = os.path.splitext(pdb_name)[0]
 
     # 1. Fetch PWM first (Fail fast if no ground truth exists for training)
-    pwm_matrix = None
+    # pwm_matrix = None
     pwm_matrix = get_hybrid_pwm(pdb_id, annotations, jaspar_indices)
 
-    if pwm_matrix is None:
-        raise StructureRejected(
-            f"No valid ground-truth PWM available in annotations for {pdb_id}"
-        )
+    # if pwm_matrix is None:
+    #     raise StructureRejected(
+    #         f"No valid ground-truth PWM available in annotations for {pdb_id}"
+    #     )
 
     # Polite delay to prevent PDBe API throttling
     time.sleep(0.1)
@@ -173,52 +173,64 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
         dna_labels = build_dna_labels(dna_pairs)
 
         # ---- DNA Alignment
-
-        raw_target_pwm = pwm_matrix
-        trimmed_pwm = trim_pwm(raw_target_pwm, ic_threshold=0.5)
-
         seq_fwd_5to3, seq_rev_5to3 = get_sequence_one_hot(dna_labels)
+        N_d = len(dna_labels)
 
-        opt_i_fwd, opt_j_fwd, opt_k_fwd, score_fwd = ungapped_align(
-            seq_fwd_5to3, trimmed_pwm
-        )
-        opt_i_rev, opt_j_rev, opt_k_rev, score_rev = ungapped_align(
-            seq_rev_5to3, trimmed_pwm
-        )
+        pwm_present = True
 
-        if max(score_fwd, score_rev) == -9999.0:
-            raise StructureRejected(
-                "DNA structural strand or PWM is too short to execute alignment cutoff."
+        if pwm_matrix is None:
+            pwm_present = False
+
+            target_pwm_forward = seq_fwd_5to3
+            target_pwm_reverse = seq_rev_5to3
+            
+            # Masks are entirely True since the whole track matches itself perfectly
+            alignment_mask_forward = np.ones(N_d, dtype=bool)
+            alignment_mask_reverse = np.ones(N_d, dtype=bool)
+        else:
+            # do actual alignment and all
+            raw_target_pwm = pwm_matrix
+            trimmed_pwm = trim_pwm(raw_target_pwm, ic_threshold=0.5)
+
+            opt_i_fwd, opt_j_fwd, opt_k_fwd, score_fwd = ungapped_align(
+                seq_fwd_5to3, trimmed_pwm
+            )
+            opt_i_rev, opt_j_rev, opt_k_rev, score_rev = ungapped_align(
+                seq_rev_5to3, trimmed_pwm
             )
 
-        N_d = len(dna_labels)
-        target_pwm_forward = np.full((N_d, 4), 0.25, dtype=np.float32)
-        alignment_mask_forward = np.zeros(N_d, dtype=bool)
+            if max(score_fwd, score_rev) == -9999.0:
+                raise StructureRejected(
+                    "DNA structural strand or PWM is too short to execute alignment cutoff."
+                )
 
-        if score_fwd >= score_rev:
-            # PWM aligned best directly to the forward structural coordinates
-            for col in range(opt_k_fwd):
-                target_pwm_forward[opt_j_fwd + col] = trimmed_pwm[opt_i_fwd + col]
-            alignment_mask_forward[opt_j_fwd : opt_j_fwd + opt_k_fwd] = True
+            target_pwm_forward = np.full((N_d, 4), 0.25, dtype=np.float32)
+            alignment_mask_forward = np.zeros(N_d, dtype=bool)
 
-            # The reverse strand target is natively the reverse complement of the forward map
-            target_pwm_reverse = target_pwm_forward[::-1, [3, 2, 1, 0]]
-            alignment_mask_reverse = alignment_mask_forward[::-1]
-        else:
-            # PWM aligned best to the reverse complement 5'-3' coordinate track
-            target_pwm_reverse_5to3 = np.full((N_d, 4), 0.25, dtype=np.float32)
-            alignment_mask_reverse_5to3 = np.zeros(N_d, dtype=bool)
+            if score_fwd >= score_rev:
+                # PWM aligned best directly to the forward structural coordinates
+                for col in range(opt_k_fwd):
+                    target_pwm_forward[opt_j_fwd + col] = trimmed_pwm[opt_i_fwd + col]
+                alignment_mask_forward[opt_j_fwd : opt_j_fwd + opt_k_fwd] = True
 
-            for col in range(opt_k_rev):
-                target_pwm_reverse_5to3[opt_j_rev + col] = trimmed_pwm[opt_i_rev + col]
-            alignment_mask_reverse_5to3[opt_j_rev : opt_j_rev + opt_k_rev] = True
+                # The reverse strand target is natively the reverse complement of the forward map
+                target_pwm_reverse = target_pwm_forward[::-1, [3, 2, 1, 0]]
+                alignment_mask_reverse = alignment_mask_forward[::-1]
+            else:
+                # PWM aligned best to the reverse complement 5'-3' coordinate track
+                target_pwm_reverse_5to3 = np.full((N_d, 4), 0.25, dtype=np.float32)
+                alignment_mask_reverse_5to3 = np.zeros(N_d, dtype=bool)
 
-            # Reconstruct the forward perspective targets via reverse complement mapping
-            target_pwm_forward = target_pwm_reverse_5to3[::-1, [3, 2, 1, 0]]
-            alignment_mask_forward = alignment_mask_reverse_5to3[::-1]
+                for col in range(opt_k_rev):
+                    target_pwm_reverse_5to3[opt_j_rev + col] = trimmed_pwm[opt_i_rev + col]
+                alignment_mask_reverse_5to3[opt_j_rev : opt_j_rev + opt_k_rev] = True
 
-            target_pwm_reverse = target_pwm_reverse_5to3
-            alignment_mask_reverse = alignment_mask_reverse_5to3
+                # Reconstruct the forward perspective targets via reverse complement mapping
+                target_pwm_forward = target_pwm_reverse_5to3[::-1, [3, 2, 1, 0]]
+                alignment_mask_forward = alignment_mask_reverse_5to3[::-1]
+
+                target_pwm_reverse = target_pwm_reverse_5to3
+                alignment_mask_reverse = alignment_mask_reverse_5to3
 
         # ---- DNA Alignment
 
@@ -233,6 +245,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             bond_matrix,
             protein_labels,
             dna_labels,
+            pwm_present,
             target_pwm_forward,
             alignment_mask_forward,
             target_pwm_reverse,

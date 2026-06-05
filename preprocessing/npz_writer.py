@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from constants import STORE_DTYPE_FEATURES, STORE_DTYPE_BOND_MATRIX
+from .constants import STORE_DTYPE_FEATURES, STORE_DTYPE_BOND_MATRIX
 
 
 def save_npz(
@@ -12,6 +12,9 @@ def save_npz(
     bond_matrix,
     protein_labels,
     dna_labels,
+
+    pwm_present,
+
     target_pwm_forward,
     alignment_mask_forward,
     target_pwm_reverse,
@@ -28,6 +31,9 @@ def save_npz(
         bond_matrix=bond_matrix.astype(STORE_DTYPE_BOND_MATRIX),
         protein_labels=np.array(protein_labels, dtype=str),
         dna_labels=np.array(dna_labels, dtype=str),
+
+        pwm_present=np.array(pwm_present, dtype=bool),
+
         target_pwm_forward=target_pwm_forward.astype(np.float32),
         alignment_mask_forward=alignment_mask_forward.astype(bool),
         target_pwm_reverse=target_pwm_reverse.astype(np.float32),

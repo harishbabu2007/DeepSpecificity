@@ -48,7 +48,9 @@ def parse_uniprobe_file(file_path):
 
 def get_pwm_matrix_from_annotations(pdb_id, annotations, hocomoco_dir="../data/motifs/hocomoco", cisbp_dir="../data/motifs/cisbp", uniprobe_dir="../data/motifs/uniprobe"):
     pdb_id = pdb_id.lower()
+    
     if pdb_id not in annotations or not annotations[pdb_id]: return None
+
     jdb_obj = jaspardb(release="JASPAR2024")
     for site_motifs in annotations[pdb_id]:
         for motif_info in site_motifs:
