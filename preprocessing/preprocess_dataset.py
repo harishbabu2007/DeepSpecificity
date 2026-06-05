@@ -258,13 +258,13 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
     finally:
         pass
 
-    return {
-        "pdb_id": pdb_id,
-        "num_residues": protein_features.shape[0],
-        "num_base_pairs": dna_features.shape[0],
-        "num_hbonds": int(bond_matrix.sum()),
-        "pwm_shape": pwm_matrix.shape,
-    }
+    # return {
+    #     "pdb_id": pdb_id,
+    #     "num_residues": protein_features.shape[0],
+    #     "num_base_pairs": dna_features.shape[0],
+    #     "num_hbonds": int(bond_matrix.sum()),
+    #     "pwm_shape": pwm_matrix.shape,
+    # }
 
 
 def process_directory(pdb_dir, output_dir, hydrogenated_dir):

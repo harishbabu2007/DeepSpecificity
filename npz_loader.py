@@ -9,6 +9,7 @@ def get_data_from_npz(file_path: str):
             data["bond_matrix"],
             data["protein_labels"],
             data["dna_labels"],
+            data["pwm_present"],
             data["target_pwm_forward"],
             data["alignment_mask_forward"],
             data["target_pwm_reverse"],
