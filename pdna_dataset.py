@@ -37,7 +37,7 @@ class PDNADataset(Dataset):
             "bond_matrix": torch.tensor(bond_matrix, dtype=torch.uint8),
             "protein_labels": protein_labels,
             "dna_labels": dna_labels,
-            "pwm_present": pwm_present[0],
+            "pwm_present": pwm_present.item(),
             "target_pwm_forward": torch.tensor(target_pwm_forward, dtype=torch.float32),
             "alignment_mask_forward": torch.tensor(alignment_mask_forward, dtype=torch.bool),
             "target_pwm_reverse": torch.tensor(target_pwm_reverse, dtype=torch.float32),
