@@ -17,7 +17,7 @@ from preprocessing.bond_matrix import generate_bond_matrix
 
 from architecture.model import DeepSpecificity
 from config import *
-from utils import split_dna_features
+from utils import split_dna_features, split_dna_features_no_seq
 
 import numpy as np
 import pandas as pd
@@ -87,7 +87,7 @@ def preprocess(pdb_path, device):
     }
 
 
-def inference_model(data, device, checkpoint_path):
+def inference_model(data, device, checkpoint_path, v2):
     model = DeepSpecificity(
         len_dna_features=DNA_FEATURE_DIM,
         len_prot_features=PROTEIN_FEATURE_DIM,
@@ -110,7 +110,11 @@ def inference_model(data, device, checkpoint_path):
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
-    dna_fwd, dna_rc = split_dna_features(data["dna_features"])
+    if v2:
+        dna_fwd, dna_rc = split_dna_features_no_seq(data["dna_features"])
+    else:
+        dna_fwd, dna_rc = split_dna_features(data["dna_features"])
+
     protein_features = data["protein_features"]
 
     protein_features = protein_features.unsqueeze(0)
@@ -214,13 +218,14 @@ def main():
     parser.add_argument("--pdb", type=str, help="path to pdb file")
     parser.add_argument("--checkpoint", type=str, help="path to the checkpoint file")
     parser.add_argument("--out_dir", type=str, help="out dir for pwm png")
+    parser.add_argument("--v2", action="store_true")
 
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     data = preprocess(args.pdb, device)
-    ppm_fwd, ppm_rc = inference_model(data, device, args.checkpoint)
+    ppm_fwd, ppm_rc = inference_model(data, device, args.checkpoint, args.v2)
 
     plot_bonded_sequence_logo(ppm_fwd, data["bond_matrix"].cpu().numpy(), protein_labels=data["protein_labels"], dna_labels=data["dna_labels"], title=data["pdb_id"])
 
