@@ -12,7 +12,7 @@ from pdna_dataset import PDNADataset
 from architecture.model import DeepSpecificity
 from losses import masked_ppm_loss_with_one_hot
 
-from utils import split_dna_features
+from utils import split_dna_features_no_seq
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.set_float32_matmul_precision("high")
@@ -74,7 +74,7 @@ for epoch in range(EPOCHS):
             protein_features = item["protein_features"].to(device)
             dna_features = item["dna_features"].to(device)
 
-            dna_fwd, dna_rc = split_dna_features(dna_features)
+            dna_fwd, dna_rc = split_dna_features_no_seq(dna_features)
 
             protein_features = protein_features.unsqueeze(0)
             dna_fwd = dna_fwd.unsqueeze(0)

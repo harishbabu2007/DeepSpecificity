@@ -8,6 +8,14 @@ def split_dna_features(dna_features):
 
     return dna_fwd, dna_rc
 
+def split_dna_features_no_seq(dna_features):
+    dna_fwd, dna_rc = split_dna_features(dna_features)
+
+    dna_fwd[:4] = 0
+    dna_rc[:4] = 0
+
+    return dna_fwd, dna_rc
+
 
 def reverse_complement_pwm(pwm):
     pwm = torch.flip(pwm, dims=[0])
