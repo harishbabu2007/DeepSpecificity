@@ -6,14 +6,14 @@ import time
 import numpy as np
 
 from tqdm import tqdm
-from .pdb_parser import load_and_validate, StructureRejected
-from .coordinate_utils import compute_complex_centroid
-from .dna_features import generate_dna_features
-from .protein_features import generate_protein_features
-from .bond_matrix import generate_bond_matrix
-from .npz_writer import save_npz, build_output_path
-from .get_pwm import get_hybrid_pwm, build_jaspar_index
-from .constants import MAX_PROTEIN_LENGTH
+from pdb_parser import load_and_validate, StructureRejected
+from coordinate_utils import compute_complex_centroid
+from dna_features import generate_dna_features
+from protein_features import generate_protein_features
+from bond_matrix import generate_bond_matrix
+from npz_writer import save_npz, build_output_path
+from get_pwm import get_hybrid_pwm, build_jaspar_index, generate_spatial_proximity_mask
+from constants import MAX_PROTEIN_LENGTH
 import json
 
 def load_motif_annotations(json_path):
@@ -144,7 +144,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
 
     pdb_id = os.path.splitext(pdb_name)[0]
 
-    # 1. Fetch PWM first (Fail fast if no ground truth exists for training)
+    # Fetch PWM first (Fail fast if no ground truth exists for training)
     # pwm_matrix = None
     pwm_matrix = get_hybrid_pwm(pdb_id, annotations, jaspar_indices)
 
@@ -185,10 +185,15 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
         if pwm_matrix is None:
             pwm_present = False
 
-            target_pwm_forward = seq_fwd_5to3
-            target_pwm_reverse = seq_rev_5to3
+            target_pwm_forward = seq_fwd_5to3.copy()
+            target_pwm_reverse = seq_rev_5to3.copy()
             
-            # Masks are entirely True since the whole track matches itself perfectly
+            near_fwd, near_rev = generate_spatial_proximity_mask(dna_features, protein_features, distance_threshold_angstroms=7.0)
+            
+            # If a base isn't close to the protein, assign a uniform 0.25 probability background distribution
+            target_pwm_forward[~near_fwd] = 0.25
+            target_pwm_reverse[~near_rev] = 0.25
+        
             alignment_mask_forward = np.ones(N_d, dtype=bool)
             alignment_mask_reverse = np.ones(N_d, dtype=bool)
         else:

@@ -1,16 +1,16 @@
 import numpy as np
 
-from .constants import (
+from constants import (
     AA_TO_INDEX,
     PROTEIN_BACKBONE_ORDER,
     MAX_PROTEIN_SIDECHAIN_HEAVY_ATOMS,
 )
 
-from .residue_definitions import SIDECHAIN_ATOMS
+from residue_definitions import SIDECHAIN_ATOMS
 
-from .geometry import pad_coordinate_list
+from geometry import pad_coordinate_list
 
-from .coordinate_utils import transform_coordinate
+from coordinate_utils import transform_coordinate
 
 
 def one_hot_residue(residue_name):

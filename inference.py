@@ -207,7 +207,7 @@ def plot_bonded_sequence_logo(
     print("-" * 50)
     print(f"Total bonds: {bond_count}")
 
-    plt.show()
+    # plt.show()
 
 
 def main():
@@ -227,7 +227,21 @@ def main():
     data = preprocess(args.pdb, device)
     ppm_fwd, ppm_rc = inference_model(data, device, args.checkpoint, args.v2)
 
-    plot_bonded_sequence_logo(ppm_fwd, data["bond_matrix"].cpu().numpy(), protein_labels=data["protein_labels"], dna_labels=data["dna_labels"], title=data["pdb_id"])
+    plot_bonded_sequence_logo(
+        ppm_fwd, 
+        data["bond_matrix"].cpu().numpy(),
+        protein_labels=data["protein_labels"],
+        dna_labels=data["dna_labels"],
+        title=f"{data['pdb_id']} fwd"
+    )
+    plot_bonded_sequence_logo(
+        ppm_rc,
+        data["bond_matrix"].cpu().numpy(),
+        protein_labels=data["protein_labels"],
+        dna_labels=data["dna_labels"],
+        title=f"{data['pdb_id']} rev",
+    )
+    plt.show()
 
 
 if __name__ == "__main__":
