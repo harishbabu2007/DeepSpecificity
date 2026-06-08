@@ -16,6 +16,10 @@ from get_pwm import get_hybrid_pwm, build_jaspar_index, generate_spatial_proximi
 from constants import MAX_PROTEIN_LENGTH
 import json
 
+from openmm.app import PDBFile
+from pdbfixer import PDBFixer
+import sys
+
 def load_motif_annotations(json_path):
     with open(json_path, 'r') as f:
         data = json.load(f)
@@ -127,12 +131,33 @@ def build_dna_labels(dna_pairs):
     return labels
 
 
-def hydrogenate_pdb(input_pdb, output_pdb):
+def hydrogenate_pdb_reduce(input_pdb, output_pdb):
     result = subprocess.run(["reduce", input_pdb], capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"Reduce failed:\n{result.stderr}")
     with open(output_pdb, "w") as f:
         f.write(result.stdout)
+    return output_pdb
+
+
+def hydrogenate_with_pdbfixer(input_pdb: str, output_pdb: str) -> str:
+    """
+    Hydrogenates and repairs a PDB file using PDBFixer.
+    Adds missing heavy atoms, cleans structure drops, and adds hydrogens at pH 7.0.
+    """
+    fixer = PDBFixer(filename=input_pdb)
+
+    fixer.findMissingResidues()
+    fixer.findNonstandardResidues()
+    fixer.replaceNonstandardResidues()
+    fixer.findMissingAtoms()
+    fixer.addMissingAtoms()
+
+    fixer.addMissingHydrogens(pH=7.0)
+
+    with open(output_pdb, "w") as f:
+        PDBFile.writeFile(fixer.topology, fixer.positions, f, keepIds=True)
+
     return output_pdb
 
 
@@ -144,14 +169,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
 
     pdb_id = os.path.splitext(pdb_name)[0]
 
-    # Fetch PWM first (Fail fast if no ground truth exists for training)
-    # pwm_matrix = None
     pwm_matrix = get_hybrid_pwm(pdb_id, annotations, jaspar_indices)
-
-    # if pwm_matrix is None:
-    #     raise StructureRejected(
-    #         f"No valid ground-truth PWM available in annotations for {pdb_id}"
-    #     )
 
     # Polite delay to prevent PDBe API throttling
     time.sleep(0.1)
@@ -160,7 +178,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
 
     if not os.path.exists(hydrogenated_pdb):
         print(f"\nHydrogenating: {pdb_name}")
-        hydrogenated_pdb = hydrogenate_pdb(pdb_path, hydrogenated_pdb)
+        hydrogenated_pdb = hydrogenate_with_pdbfixer(pdb_path, hydrogenated_pdb)
 
     try:
         structure, protein_residues, dna_pairs = load_and_validate(hydrogenated_pdb)

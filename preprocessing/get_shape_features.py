@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 
 
-def get_shape_features(pdb_file_path):
+def get_shape_data(pdb_file_path):
     abs_pdb_path = os.path.abspath(pdb_file_path)
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,14 +30,18 @@ def get_shape_features(pdb_file_path):
 
     return json_data
 
+def process_json_data(json_data):
+    # for key, value in json_data.items():
+    #     print(key)
+
+    print(len(json_data['pairs']))
+    print(len(json_data["helices"][0]["pairs"]))
+
 
 if __name__ == "__main__":
-    data = get_shape_features("../samples/3VD6.pdb")
+    data = get_shape_data("../samples/3VD6.pdb")
 
-    if data:
-        with open("./dssr-output.json", "w", encoding="utf-8") as file:
-            json.dump(data, file, indent=4)
-    else:
-        print("No Data")
+    if data is not None:
+        process_json_data(data)
 
     # base pair feature - stretch, stagger, buckle, propeller, opening
