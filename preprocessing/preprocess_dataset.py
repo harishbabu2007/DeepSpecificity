@@ -14,6 +14,7 @@ from bond_matrix import generate_bond_matrix
 from npz_writer import save_npz, build_output_path
 from get_pwm import get_hybrid_pwm, build_jaspar_index, generate_spatial_proximity_mask
 from constants import MAX_PROTEIN_LENGTH
+from get_shape_features import get_dna_shape_features
 import json
 
 from openmm.app import PDBFile
@@ -194,6 +195,10 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
         if len(protein_labels) > MAX_PROTEIN_LENGTH:
             raise StructureRejected(f"\nProtein in {pdb_id} longer than {MAX_PROTEIN_LENGTH}")
 
+        # get dna shape features
+        dna_shape_features = get_dna_shape_features(hydrogenated_pdb, dna_pairs)
+
+
         # ---- DNA Alignment
         seq_fwd_5to3, seq_rev_5to3 = get_sequence_one_hot(dna_labels)
         N_d = len(dna_labels)
@@ -205,13 +210,13 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
 
             target_pwm_forward = seq_fwd_5to3.copy()
             target_pwm_reverse = seq_rev_5to3.copy()
-            
+
             near_fwd, near_rev = generate_spatial_proximity_mask(dna_features, protein_features, distance_threshold_angstroms=7.0)
-            
+
             # If a base isn't close to the protein, assign a uniform 0.25 probability background distribution
             target_pwm_forward[~near_fwd] = 0.25
             target_pwm_reverse[~near_rev] = 0.25
-        
+
             alignment_mask_forward = np.ones(N_d, dtype=bool)
             alignment_mask_reverse = np.ones(N_d, dtype=bool)
         else:
@@ -268,6 +273,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             output_path,
             pdb_id,
             dna_features,
+            dna_shape_features,
             protein_features,
             bond_matrix,
             protein_labels,

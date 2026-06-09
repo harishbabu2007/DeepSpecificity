@@ -19,6 +19,7 @@ class PDNADataset(Dataset):
         (
             pdb_id,
             dna_features,
+            dna_shape_features,
             protein_features,
             bond_matrix,
             protein_labels,
@@ -33,13 +34,18 @@ class PDNADataset(Dataset):
         return {
             "pdb_id": pdb_id,
             "dna_features": torch.tensor(dna_features, dtype=torch.float32),
+            "dna_shape_features": torch.tensor(dna_shape_features, dtype=torch.float32),
             "protein_features": torch.tensor(protein_features, dtype=torch.float32),
             "bond_matrix": torch.tensor(bond_matrix, dtype=torch.uint8),
             "protein_labels": protein_labels,
             "dna_labels": dna_labels,
             "pwm_present": pwm_present.item(),
             "target_pwm_forward": torch.tensor(target_pwm_forward, dtype=torch.float32),
-            "alignment_mask_forward": torch.tensor(alignment_mask_forward, dtype=torch.bool),
+            "alignment_mask_forward": torch.tensor(
+                alignment_mask_forward, dtype=torch.bool
+            ),
             "target_pwm_reverse": torch.tensor(target_pwm_reverse, dtype=torch.float32),
-            "alignment_mask_reverse": torch.tensor(alignment_mask_reverse, dtype=torch.bool),
+            "alignment_mask_reverse": torch.tensor(
+                alignment_mask_reverse, dtype=torch.bool
+            ),
         }

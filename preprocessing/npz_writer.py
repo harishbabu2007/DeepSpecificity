@@ -8,6 +8,7 @@ def save_npz(
     output_path,
     pdb_id,
     dna_features,
+    dna_shape_features,
     protein_features,
     bond_matrix,
     protein_labels,
@@ -26,9 +27,14 @@ def save_npz(
     np.savez_compressed(
         output_path,
         pdb_id=pdb_id,
+
         dna_features=dna_features.astype(STORE_DTYPE_FEATURES),
+        dna_shape_features=dna_shape_features.astype(STORE_DTYPE_FEATURES),
+
         protein_features=protein_features.astype(STORE_DTYPE_FEATURES),
+
         bond_matrix=bond_matrix.astype(STORE_DTYPE_BOND_MATRIX),
+
         protein_labels=np.array(protein_labels, dtype=str),
         dna_labels=np.array(dna_labels, dtype=str),
 

@@ -5,6 +5,7 @@ def get_data_from_npz(file_path: str):
         return (
             data["pdb_id"],
             data["dna_features"],
+            data["dna_shape_features"],
             data["protein_features"],
             data["bond_matrix"],
             data["protein_labels"],
