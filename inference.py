@@ -7,7 +7,13 @@ import torch
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+# Existing path addition (adds the project root/parent directory)
+project_root = Path(__file__).resolve().parents[1]
+sys.path.append(str(project_root))
+
+# Add the preprocessing folder to sys.path so its internal imports can resolve
+preprocessing_dir = Path(__file__).resolve().parent / "preprocessing"
+sys.path.append(str(preprocessing_dir))
 
 from preprocessing.pdb_parser import load_and_validate, StructureRejected
 from preprocessing.coordinate_utils import compute_complex_centroid
