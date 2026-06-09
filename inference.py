@@ -20,10 +20,12 @@ from preprocessing.coordinate_utils import compute_complex_centroid
 from preprocessing.dna_features import generate_dna_features
 from preprocessing.protein_features import generate_protein_features
 from preprocessing.bond_matrix import generate_bond_matrix
+from preprocessing.get_shape_features import get_dna_shape_features
 
 from architecture.model import DeepSpecificity
+from architecture.model_v2_shape import DeepSpecificityWithShape
 from config import *
-from utils import split_dna_features, split_dna_features_no_seq
+from utils import split_dna_features, split_dna_features_no_seq, split_dna_shape_features
 
 import numpy as np
 import pandas as pd
@@ -79,6 +81,8 @@ def preprocess(pdb_path, device):
 
         protein_labels = build_protein_labels(protein_residues)
         dna_labels = build_dna_labels(dna_pairs)
+
+        dna_shape_features = get_dna_shape_features(hydrogenated_pdb, dna_pairs)
     finally:
         if os.path.exists(hydrogenated_pdb):
             os.remove(hydrogenated_pdb)
@@ -86,10 +90,13 @@ def preprocess(pdb_path, device):
     return {
         "pdb_id": pdb_id,
         "dna_features": torch.tensor(dna_features, dtype=torch.float32).to(device),
-        "protein_features": torch.tensor(protein_features, dtype=torch.float32).to(device),
+        "dna_shape_features": torch.tensor(dna_shape_features, dtype=torch.float32).to(device),
+        "protein_features": torch.tensor(protein_features, dtype=torch.float32).to(
+            device
+        ),
         "bond_matrix": torch.tensor(bond_matrix, dtype=torch.uint8).to(device),
         "protein_labels": protein_labels,
-        "dna_labels": dna_labels
+        "dna_labels": dna_labels,
     }
 
 
@@ -139,6 +146,52 @@ def inference_model(data, device, checkpoint_path, v2):
 
     return pred_fwd, pred_rc
 
+def inference_model_shape(data, device, checkpoint_path):
+    model = DeepSpecificityWithShape(
+        len_dna_features=DNA_FEATURE_DIM,
+        len_prot_features=PROTEIN_FEATURE_DIM,
+        len_dna_shape_features=DNA_SHAPE_FEATURES_DIM,
+        d_model=D_MODEL,
+        n_head_dna=N_HEAD_DNA,
+        n_enc_dna=N_ENC_DNA,
+        n_head_prot=N_HEAD_PROT,
+        n_enc_prot=N_ENC_PROT,
+        n_cross_att_heads=N_CROSS_HEADS,
+        n_enc_pwm=N_ENC_PWM,
+        n_head_pwm=N_HEAD_PWM,
+    ).to(device)
+    model = torch.compile(model)
+
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+
+    model.load_state_dict(checkpoint["model_state_dict"])
+    model.eval()
+
+    dna_fwd, dna_rc = split_dna_features_no_seq(data["dna_features"])
+    dna_shape_features_fwd, dna_shape_features_rev = split_dna_shape_features(
+        data["dna_shape_features"]
+    )
+
+    protein_features = data["protein_features"]
+
+    protein_features = protein_features.unsqueeze(0)
+    dna_fwd = dna_fwd.unsqueeze(0)
+    dna_rc = dna_rc.unsqueeze(0)
+    dna_shape_features_fwd = dna_shape_features_fwd.unsqueeze(0)
+    dna_shape_features_rev = dna_shape_features_rev.unsqueeze(0)
+
+    with torch.no_grad():
+        pred_fwd = model(dna_fwd, dna_shape_features_fwd, protein_features)
+        pred_rc = model(dna_rc, dna_shape_features_rev, protein_features)
+
+        pred_fwd = pred_fwd.squeeze(0)
+        pred_rc = pred_rc.squeeze(0)
+
+        pred_fwd = torch.softmax(pred_fwd, dim=-1).cpu().numpy()
+        pred_rc = torch.softmax(pred_rc, dim=-1).cpu().numpy()
+
+    return pred_fwd, pred_rc
+
 
 def ppm_to_ic(ppm):
     ppm = np.clip(ppm, 1e-6, 1.0)
@@ -163,7 +216,6 @@ def plot_bonded_sequence_logo(
     columns = ["A", "C", "G", "T"]
     df = pd.DataFrame(ppm_to_ic(ppm), columns=columns)
     fig, ax = plt.subplots(figsize=(14, 3))
-    # print(ppm.sum(axis=1))
 
     bond_counts = bond_matrix.sum(axis=0)
     max_bonds = max(bond_counts.max(), 1)
@@ -225,13 +277,17 @@ def main():
     parser.add_argument("--checkpoint", type=str, help="path to the checkpoint file")
     parser.add_argument("--out_dir", type=str, help="out dir for pwm png")
     parser.add_argument("--v2", action="store_true")
+    parser.add_argument("--shape", action="store_true")
 
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     data = preprocess(args.pdb, device)
-    ppm_fwd, ppm_rc = inference_model(data, device, args.checkpoint, args.v2)
+    if args.shape:
+        ppm_fwd, ppm_rc = inference_model_shape(data, device, args.checkpoint)
+    else:
+        ppm_fwd, ppm_rc = inference_model(data, device, args.checkpoint, args.v2)
 
     plot_bonded_sequence_logo(
         ppm_fwd, 
