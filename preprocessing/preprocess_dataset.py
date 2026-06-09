@@ -179,7 +179,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
 
     if not os.path.exists(hydrogenated_pdb):
         print(f"\nHydrogenating: {pdb_name}")
-        hydrogenated_pdb = hydrogenate_with_pdbfixer(pdb_path, hydrogenated_pdb)
+        hydrogenated_pdb = hydrogenate_pdb_reduce(pdb_path, hydrogenated_pdb)
 
     try:
         structure, protein_residues, dna_pairs = load_and_validate(hydrogenated_pdb)
