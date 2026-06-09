@@ -79,36 +79,24 @@ def extract_dna_shape_features(json_data, dna_pairs):
             r_num = reverse_res.id[1]
             res_to_node_idx[(r_chain, r_num)] = idx
 
-    # Step 2: Extract Base Pair Parameters (Shear, Stretch, Stagger, Buckle, Propeller, Opening)
-    bp_keys = ["Shear", "Stretch", "Stagger", "Buckle", "Propeller", "Opening"]
     pairs_list = json_data.get("pairs", [])
 
     for p in pairs_list:
         c1, n1 = parse_dssr_nt(p.get("nt1"))
         c2, n2 = parse_dssr_nt(p.get("nt2"))
 
-        # Find which graph node this DSSR pair belongs to
+        # Find which idx this DSSR pair belongs to
         node_idx = res_to_node_idx.get((c1, n1)) or res_to_node_idx.get((c2, n2))
 
         if node_idx is not None:
-            # vals = []
-            # for k in bp_keys:
-            #     # Fallback checking for 'simple_Shear', 'shear', or 'Shear' keys
-            #     val = p.get(f"simple_{k}", p.get(k.lower(), p.get(k, 0.0)))
-            #     vals.append(val if val is not None else 0.0)
             vals = p.get("bp_params")
             bp_features[node_idx] = vals
 
-    # Step 3: Extract Base Pair Step Parameters (Shift, Slide, Rise, Tilt, Roll, Twist)
-    step_keys = ["Shift", "Slide", "Rise", "Tilt", "Roll", "Twist"]
-
-    # DSSR can place step properties globally or nested inside helices blocks
     steps_list = []
     for helix in json_data["helices"]:
         steps_list.extend(helix.get("pairs", []))
 
     for s in steps_list:
-        # A dinucleotide step connects two base-pairs, identifying up to 4 residues
         matched_indices = []
         for nt_key in ["nt1", "nt2"]:
             c, n = parse_dssr_nt(s.get(nt_key))
@@ -119,9 +107,6 @@ def extract_dna_shape_features(json_data, dna_pairs):
             # Map step features to the starting node index (i.e. step leaving node i)
             node_idx = min(matched_indices)
             vals = s.get("step_params")
-            # for k in step_keys:
-            #     val = s.get(f"simple_{k}", s.get(k.lower(), s.get(k, 0.0)))
-            #     vals.append(val if val is not None else 0.0)
             step_features[node_idx] = vals
 
     return bp_features, step_features
