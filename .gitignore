@@ -6,6 +6,7 @@ __pycache__/
 data/
 checkpoints/
 wandb/
+attributions/
 
 # C extensions
 *.so

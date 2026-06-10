@@ -4,6 +4,8 @@ import subprocess
 import tempfile
 import torch
 
+torch.set_float32_matmul_precision("high")
+
 import sys
 from pathlib import Path
 
@@ -26,6 +28,7 @@ from architecture.model import DeepSpecificity
 from architecture.model_v2_shape import DeepSpecificityWithShape
 from config import *
 from utils import split_dna_features, split_dna_features_no_seq, split_dna_shape_features
+from correlation_ploting import interpret_sample
 
 import numpy as np
 import pandas as pd
@@ -146,7 +149,7 @@ def inference_model(data, device, checkpoint_path, v2):
 
     return pred_fwd, pred_rc
 
-def inference_model_shape(data, device, checkpoint_path):
+def inference_model_shape(data, device, checkpoint_path, amap):
     model = DeepSpecificityWithShape(
         len_dna_features=DNA_FEATURE_DIM,
         len_prot_features=PROTEIN_FEATURE_DIM,
@@ -189,6 +192,9 @@ def inference_model_shape(data, device, checkpoint_path):
 
         pred_fwd = torch.softmax(pred_fwd, dim=-1).cpu().numpy()
         pred_rc = torch.softmax(pred_rc, dim=-1).cpu().numpy()
+
+    if amap:
+        interpret_sample(model, data)
 
     return pred_fwd, pred_rc
 
@@ -278,6 +284,7 @@ def main():
     parser.add_argument("--out_dir", type=str, help="out dir for pwm png")
     parser.add_argument("--v2", action="store_true")
     parser.add_argument("--shape", action="store_true")
+    parser.add_argument("--amap", action="store_true")
 
     args = parser.parse_args()
 
@@ -285,7 +292,7 @@ def main():
 
     data = preprocess(args.pdb, device)
     if args.shape:
-        ppm_fwd, ppm_rc = inference_model_shape(data, device, args.checkpoint)
+        ppm_fwd, ppm_rc = inference_model_shape(data, device, args.checkpoint, args.amap)
     else:
         ppm_fwd, ppm_rc = inference_model(data, device, args.checkpoint, args.v2)
 
