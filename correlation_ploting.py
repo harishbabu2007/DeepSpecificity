@@ -112,26 +112,26 @@ def compute_and_save_strand_attributions(
                 yticklabels=DNA_SHAPE_NAMES,
                 xticklabels=True,
                 ax=axes[c],
-                cbar_kws={"label": "Attribution Score"},
+                cbar_kws={"label": "Attribution value"},
             )
             axes[c].set_title(
-                f"Influence of Shape Features on '{NUCLEOTIDES[c]}' Prediction at This Base",
+                f"Influence of Shape Features on prediction of '{NUCLEOTIDES[c]}' at this Base",
                 fontsize=11,
                 fontweight="bold",
             )
-            axes[c].set_ylabel("Shape Metrics")
+            axes[c].set_ylabel("Shape Features")
 
         axes[-1].set_xlabel(
-            "Physical Coordinate Location of Shape Features (j)", fontsize=12
+            "Position of the base in the sequence", fontsize=12
         )
 
         # readable 1-indexed filename layout matching model logit positions
         if is_rev:
-            base_num = Nd - i
+            base_num = Nd - i - 1
         else:
-            base_num = i + 1
+            base_num = i
         plt.suptitle(
-            f"Positional Interpretation Profile — Output Base Position: {base_num}",
+            f"Positional Attribution at Output Base Position: {base_num}",
             fontsize=15,
             y=0.99,
             fontweight="bold",
