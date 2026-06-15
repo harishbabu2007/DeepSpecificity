@@ -268,8 +268,8 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
                 target_pwm_reverse = target_pwm_reverse_5to3
                 alignment_mask_reverse = alignment_mask_reverse_5to3
 
-            alignment_mask_forward = np.ones(N_d, dtype=bool)
-            alignment_mask_reverse = np.ones(N_d, dtype=bool)
+            # alignment_mask_forward = np.ones(N_d, dtype=bool)
+            # alignment_mask_reverse = np.ones(N_d, dtype=bool)
 
         # ---- DNA Alignment
 
