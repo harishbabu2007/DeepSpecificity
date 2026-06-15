@@ -211,14 +211,14 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             target_pwm_forward = seq_fwd_5to3.copy()
             target_pwm_reverse = seq_rev_5to3.copy()
 
-            # near_fwd, near_rev = generate_spatial_proximity_mask(dna_features, protein_features, distance_threshold_angstroms=7.0)
+            near_fwd, near_rev = generate_spatial_proximity_mask(dna_features, protein_features, distance_threshold_angstroms=7.0)
 
             # # If a base isn't close to the protein, assign a uniform 0.25 probability background distribution
             # target_pwm_forward[~near_fwd] = 0.25
             # target_pwm_reverse[~near_rev] = 0.25
 
-            alignment_mask_forward = np.ones(N_d, dtype=bool)
-            alignment_mask_reverse = np.ones(N_d, dtype=bool)
+            alignment_mask_forward = near_fwd
+            alignment_mask_reverse = near_rev
         else:
             # do actual alignment and all
             raw_target_pwm = pwm_matrix
