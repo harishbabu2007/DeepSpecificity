@@ -31,7 +31,6 @@ def reverse_complement_pwm(pwm):
 
 
 def pwm_to_ppm(pwm):
-    ppm = 0.25 * torch.exp(pwm)
+    ppm = 0.25 * torch.pow(2.0, pwm)
     ppm = ppm / ppm.sum(dim=-1, keepdim=True)
-
     return ppm

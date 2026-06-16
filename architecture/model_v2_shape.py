@@ -25,23 +25,27 @@ class DeepSpecificityWithShape(nn.Module):
         self.dna_embedder = DNAEncoderWithPE(len_dna_features, d_model)
         self.dna_shape_embedder = DNAEncoderWithPE(len_dna_shape_features, d_model)
 
+        self.dna_input_norm = nn.LayerNorm(len_dna_features)
+        self.shape_input_norm = nn.LayerNorm(len_dna_shape_features)
+        self.protein_input_norm = nn.LayerNorm(len_prot_features)
+
         # all encoder layers
         self.encoder_layer_dna = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=n_head_dna, batch_first=True
+            d_model=d_model, nhead=n_head_dna, batch_first=True, norm_first=True
         )
         self.transformer_encoder_dna = nn.TransformerEncoder(
             self.encoder_layer_dna, num_layers=n_enc_dna
         )
 
         self.encoder_layer_protein = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=n_head_prot, batch_first=True
+            d_model=d_model, nhead=n_head_prot, batch_first=True, norm_first=True
         )
         self.transformer_encoder_protein = nn.TransformerEncoder(
             self.encoder_layer_protein, num_layers=n_enc_prot
         )
 
         self.encoder_layer_dna_shape = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=n_head_dna//2, batch_first=True
+            d_model=d_model, nhead=n_head_dna//2, batch_first=True, norm_first=True
         )
         self.transformer_encoder_dna_shape = nn.TransformerEncoder(
             self.encoder_layer_dna_shape, num_layers=n_enc_dna//2
@@ -94,6 +98,11 @@ class DeepSpecificityWithShape(nn.Module):
         )
 
     def forward(self, dna_features, dna_shape_features, protein_features):
+        dna_features = self.dna_input_norm(dna_features)
+        dna_shape_features = self.shape_input_norm(dna_shape_features)
+        protein_features = self.protein_input_norm(protein_features)
+
+
         protein_embedding = self.protein_embedder(protein_features)
         dna_embedding = self.dna_embedder(dna_features)
         dna_shape_embedding = self.dna_shape_embedder(dna_shape_features)
