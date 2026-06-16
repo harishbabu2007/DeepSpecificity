@@ -33,22 +33,22 @@ def masked_ppm_loss_with_one_hot(logits, target_pwm, mask, pwm_present, flank_we
     """
     logits = logits.squeeze(0)
     log_probs = F.log_softmax(logits, dim=-1)
-    # pred_probs = F.softmax(logits, dim=-1)
+    pred_probs = F.softmax(logits, dim=-1)
 
     if pwm_present:
         target_ppm = pwm_to_ppm(target_pwm)
 
-        # motif
+        # Core Motif Region (where mask is True)
         if mask.sum() > 0:
             motif_loss = -(target_ppm[mask] * log_probs[mask]).sum(dim=-1).mean()
         else:
             motif_loss = 0.0
 
-        # Flanking Region
+        # Flanking Region (where mask is False) - Flatten background to 0.25
         flank_mask = ~mask
         if flank_mask.sum() > 0:
-            uniform_target = torch.full_like(log_probs[flank_mask], 0.25)
-            flank_loss = -(uniform_target * log_probs[flank_mask]).sum(dim=-1).mean()
+            uniform_target = torch.full_like(pred_probs[flank_mask], 0.25)
+            flank_loss = F.mse_loss(pred_probs[flank_mask], uniform_target)
         else:
             flank_loss = 0.0
 
@@ -57,10 +57,11 @@ def masked_ppm_loss_with_one_hot(logits, target_pwm, mask, pwm_present, flank_we
     else:
         ce_loss = -(target_pwm * log_probs).sum(dim=-1).mean()
 
+        #  Sharpen unaligned non-contact zones (where target is exactly 0.25)
         is_flank = target_pwm[:, 0] == 0.25
         if is_flank.sum() > 0:
-            uniform_target = torch.full_like(log_probs[is_flank], 0.25)
-            flank_loss = -(uniform_target * log_probs[is_flank]).sum(dim=-1).mean()
+            uniform_target = torch.full_like(pred_probs[is_flank], 0.25)
+            flank_loss = F.mse_loss(pred_probs[is_flank], uniform_target)
         else:
             flank_loss = 0.0
 
