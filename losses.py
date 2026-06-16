@@ -25,7 +25,7 @@ def masked_ppm_loss(logits, target_pwm, mask):
 
     return loss.mean()
 
-def masked_ppm_loss_with_one_hot(logits, target_pwm, mask, pwm_present, flank_weight=0.5):
+def masked_ppm_loss_with_one_hot(logits, target_pwm, mask, pwm_present, flank_weight=1):
     """
     Computes a high-contrast loss function.
     Optimizes the core motif using standard cross-entropy, while aggressively
