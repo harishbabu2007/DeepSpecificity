@@ -57,24 +57,26 @@ class DeepSpecificityWithShape(nn.Module):
         )
 
         self.dna_cross_norm = nn.LayerNorm(d_model)
+        self.dna_dna_shape_cross_norm = nn.LayerNorm(d_model)
+
         self.dna_mlp = nn.Sequential(
-            nn.Linear(d_model, d_model // 2),
+            nn.Linear(d_model, d_model * 4),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(d_model // 2, d_model),
-            nn.ReLU(),
+            nn.Linear(d_model * 4, d_model),
             nn.Dropout(0.3),
         )
 
-        self.dna_dna_shape_cross_norm = nn.LayerNorm(d_model)
         self.dna_mlp_2 = nn.Sequential(
-            nn.Linear(d_model, d_model // 2),
+            nn.Linear(d_model, d_model * 4),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(d_model // 2, d_model),
-            nn.ReLU(),
+            nn.Linear(d_model * 4, d_model),
             nn.Dropout(0.3),
         )
+
+        self.dna_mlp_norm = nn.LayerNorm(d_model)
+        self.dna_mlp_norm_2 = nn.LayerNorm(d_model)
 
         # final pwm encoder and mlp
         self.pwm_encoder = nn.TransformerEncoder(
@@ -105,14 +107,14 @@ class DeepSpecificityWithShape(nn.Module):
             query=dna_before_cross, key=protein_embedding, value=protein_embedding
         )
         dna_embedding = self.dna_cross_norm(dna_embedding + dna_context)
-        dna_embedding = self.dna_mlp(dna_embedding)
+        dna_embedding = self.dna_mlp_norm(dna_embedding + self.dna_mlp(dna_embedding))
 
         dna_before_cross = dna_embedding
         dna_context, _ = self.dna_to_dna_shape_attention(
             query=dna_before_cross, key=dna_shape_embedding, value=dna_shape_embedding
         )
         dna_embedding = self.dna_dna_shape_cross_norm(dna_embedding + dna_context)
-        dna_embedding = self.dna_mlp_2(dna_embedding)
+        dna_embedding = self.dna_mlp_norm_2(dna_embedding + self.dna_mlp_2(dna_embedding))
 
         dna_embedding = self.pwm_encoder(dna_embedding)
         pwm_logits = self.pwm_head(dna_embedding)
