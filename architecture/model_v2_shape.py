@@ -85,7 +85,7 @@ class DeepSpecificityWithShape(nn.Module):
         # final pwm encoder and mlp
         self.pwm_encoder = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
-                d_model=d_model, nhead=n_head_pwm, batch_first=True
+                d_model=d_model, nhead=n_head_pwm, batch_first=True, norm_first=True
             ),
             num_layers=n_enc_pwm,
         )
@@ -94,14 +94,16 @@ class DeepSpecificityWithShape(nn.Module):
             nn.Linear(d_model, d_model),
             nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(d_model, 4),
+            nn.Linear(d_model, d_model // 2),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(d_model // 2, 4),
         )
 
     def forward(self, dna_features, dna_shape_features, protein_features):
         dna_features = self.dna_input_norm(dna_features)
         dna_shape_features = self.shape_input_norm(dna_shape_features)
         protein_features = self.protein_input_norm(protein_features)
-
 
         protein_embedding = self.protein_embedder(protein_features)
         dna_embedding = self.dna_embedder(dna_features)

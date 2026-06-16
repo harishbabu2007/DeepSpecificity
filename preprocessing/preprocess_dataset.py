@@ -226,7 +226,12 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
         else:
             # do actual alignment and all
             raw_target_pwm = pwm_matrix
-            trimmed_pwm = trim_pwm(raw_target_pwm, ic_threshold=0.5)
+
+            # pwm_matrix from JASPAR/HOCOMOCO is in log-odds space.
+            # trim_pwm and ungapped_align expect PPM (probabilities), so convert first.
+            ppm_for_align = 0.25 * np.power(2.0, raw_target_pwm)
+            ppm_for_align = ppm_for_align / ppm_for_align.sum(axis=1, keepdims=True)
+            trimmed_pwm = trim_pwm(ppm_for_align, ic_threshold=0.5)
 
             opt_i_fwd, opt_j_fwd, opt_k_fwd, score_fwd = ungapped_align(
                 seq_fwd_5to3, trimmed_pwm

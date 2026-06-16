@@ -25,19 +25,14 @@ def masked_ppm_loss(logits, target_pwm, mask):
 
     return loss.mean()
 
-def masked_ppm_loss_with_one_hot(logits, target_pwm, mask, pwm_present, flank_weight=0.1):
-    """
-    Computes a high-contrast loss function.
-    Optimizes the core motif using standard cross-entropy, while aggressively
-    forcing flanking/uninformative regions to a perfectly flat uniform distribution (IC=0).
-    """
-    logits = logits.squeeze(0)  # Shape: [Nd, 4]
-    log_probs = F.log_softmax(logits, dim=-1)  # Shape: [Nd, 4]
 
-    if pwm_present:
-        target_probs = pwm_to_ppm(target_pwm)
-    else:
-        target_probs = target_pwm
+def masked_ppm_loss_with_one_hot(
+    logits, target_pwm, mask, pwm_present, flank_weight=0.1, no_pwm_weight=0.05
+):
+    logits = logits.squeeze(0)
+    log_probs = F.log_softmax(logits, dim=-1)
+
+    target_probs = target_pwm
 
     is_flank = torch.isclose(
         target_probs, torch.tensor(0.25, device=target_probs.device)
@@ -48,4 +43,10 @@ def masked_ppm_loss_with_one_hot(logits, target_pwm, mask, pwm_present, flank_we
     if is_flank.sum() > 0:
         per_position_ce[is_flank] = per_position_ce[is_flank] * flank_weight
 
-    return per_position_ce.mean()
+    loss = per_position_ce.mean()
+
+    # Down-weight samples that have no real PWM
+    if not pwm_present:
+        loss = loss * no_pwm_weight
+
+    return loss
