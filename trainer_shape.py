@@ -2,6 +2,7 @@ import os
 import wandb
 import torch
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -54,6 +55,7 @@ model = DeepSpecificityWithShape(
 model = torch.compile(model)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-6)
 
 num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Trainable parameters: " f"{num_params:,}")
@@ -117,6 +119,7 @@ for epoch in range(EPOCHS):
         pbar.set_description(f"Epoch {epoch+1} Loss {batch_loss.item():.6f}")
 
     epoch_loss = running_loss / len(train_loader)
+    scheduler.step()
 
     wandb.log({"epoch": epoch + 1, "train_loss": epoch_loss})
     print(f"Epoch {epoch+1}/{EPOCHS} " f"Loss={epoch_loss:.6f}")
