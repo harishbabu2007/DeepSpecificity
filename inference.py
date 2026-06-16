@@ -26,6 +26,7 @@ from preprocessing.get_shape_features import get_dna_shape_features
 
 from architecture.model import DeepSpecificity
 from architecture.model_v2_shape import DeepSpecificityWithShape
+from architecture.model_v1_shape import DeepSpecificityWithShapeV1
 from config import *
 from utils import split_dna_features, split_dna_features_no_seq, split_dna_shape_features
 from correlation_ploting import interpret_sample
@@ -149,23 +150,40 @@ def inference_model(data, device, checkpoint_path, v2):
 
     return pred_fwd, pred_rc
 
-def inference_model_shape(data, device, checkpoint_path, amap):
-    model = DeepSpecificityWithShape(
-        len_dna_features=DNA_FEATURE_DIM,
-        len_prot_features=PROTEIN_FEATURE_DIM,
-        len_dna_shape_features=DNA_SHAPE_FEATURES_DIM,
-        d_model=D_MODEL,
-        n_head_dna=N_HEAD_DNA,
-        n_enc_dna=N_ENC_DNA,
-        n_head_prot=N_HEAD_PROT,
-        n_enc_prot=N_ENC_PROT,
-        n_cross_att_heads=N_CROSS_HEADS,
-        n_enc_pwm=N_ENC_PWM,
-        n_head_pwm=N_HEAD_PWM,
-    ).to(device)
+def inference_model_shape(data, device, checkpoint_path, amap, is_v2):
+    if is_v2:
+        model = DeepSpecificityWithShape(
+            len_dna_features=DNA_FEATURE_DIM,
+            len_prot_features=PROTEIN_FEATURE_DIM,
+            len_dna_shape_features=DNA_SHAPE_FEATURES_DIM,
+            d_model=D_MODEL,
+            n_head_dna=N_HEAD_DNA,
+            n_enc_dna=N_ENC_DNA,
+            n_head_prot=N_HEAD_PROT,
+            n_enc_prot=N_ENC_PROT,
+            n_cross_att_heads=N_CROSS_HEADS,
+            n_enc_pwm=N_ENC_PWM,
+            n_head_pwm=N_HEAD_PWM,
+        ).to(device)
+    else:
+        pass
+        # model = DeepSpecificityWithShapeV1(
+        #     len_dna_features=DNA_FEATURE_DIM,
+        #     len_prot_features=PROTEIN_FEATURE_DIM,
+        #     len_dna_shape_features=DNA_SHAPE_FEATURES_DIM,
+        #     d_model=D_MODEL,
+        #     n_head_dna=N_HEAD_DNA,
+        #     n_enc_dna=N_ENC_DNA,
+        #     n_head_prot=N_HEAD_PROT,
+        #     n_enc_prot=N_ENC_PROT,
+        #     n_cross_att_heads=N_CROSS_HEADS,
+        #     n_enc_pwm=N_ENC_PWM,
+        #     n_head_pwm=N_HEAD_PWM,
+        # ).to(device)
+
     model = torch.compile(model)
 
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
 
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
@@ -281,7 +299,7 @@ def main():
 
     parser.add_argument("--pdb", type=str, help="path to pdb file")
     parser.add_argument("--checkpoint", type=str, help="path to the checkpoint file")
-    parser.add_argument("--out_dir", type=str, help="out dir for pwm png")
+    # parser.add_argument("--out_dir", type=str, help="out dir for pwm png")
     parser.add_argument("--v2", action="store_true")
     parser.add_argument("--shape", action="store_true")
     parser.add_argument("--amap", action="store_true")
@@ -292,7 +310,7 @@ def main():
 
     data = preprocess(args.pdb, device)
     if args.shape:
-        ppm_fwd, ppm_rc = inference_model_shape(data, device, args.checkpoint, args.amap)
+        ppm_fwd, ppm_rc = inference_model_shape(data, device, args.checkpoint, args.amap, args.v2)
     else:
         ppm_fwd, ppm_rc = inference_model(data, device, args.checkpoint, args.v2)
 
