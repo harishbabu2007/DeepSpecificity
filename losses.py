@@ -31,38 +31,21 @@ def masked_ppm_loss_with_one_hot(logits, target_pwm, mask, pwm_present, flank_we
     Optimizes the core motif using standard cross-entropy, while aggressively
     forcing flanking/uninformative regions to a perfectly flat uniform distribution (IC=0).
     """
-    logits = logits.squeeze(0)
-    log_probs = F.log_softmax(logits, dim=-1)
-    pred_probs = F.softmax(logits, dim=-1)
+    logits = logits.squeeze(0)  # Shape: [Nd, 4]
+    log_probs = F.log_softmax(logits, dim=-1)  # Shape: [Nd, 4]
 
     if pwm_present:
-        target_ppm = pwm_to_ppm(target_pwm)
-
-        # Core Motif Region (where mask is True)
-        if mask.sum() > 0:
-            motif_loss = -(target_ppm[mask] * log_probs[mask]).sum(dim=-1).mean()
-        else:
-            motif_loss = 0.0
-
-        # Flanking Region (where mask is False) - Flatten background to 0.25
-        flank_mask = ~mask
-        if flank_mask.sum() > 0:
-            uniform_target = torch.full_like(pred_probs[flank_mask], 0.25)
-            flank_loss = F.mse_loss(pred_probs[flank_mask], uniform_target)
-        else:
-            flank_loss = 0.0
-
-        return motif_loss + (flank_weight * flank_loss)
-
+        target_probs = pwm_to_ppm(target_pwm)
     else:
-        ce_loss = -(target_pwm * log_probs).sum(dim=-1).mean()
+        target_probs = target_pwm
 
-        #  Sharpen unaligned non-contact zones (where target is exactly 0.25)
-        is_flank = target_pwm[:, 0] == 0.25
-        if is_flank.sum() > 0:
-            uniform_target = torch.full_like(pred_probs[is_flank], 0.25)
-            flank_loss = F.mse_loss(pred_probs[is_flank], uniform_target)
-        else:
-            flank_loss = 0.0
+    is_flank = torch.isclose(
+        target_probs, torch.tensor(0.25, device=target_probs.device)
+    ).all(dim=-1)
 
-        return ce_loss + (flank_weight * flank_loss)
+    per_position_ce = -(target_probs * log_probs).sum(dim=-1)
+
+    if is_flank.sum() > 0:
+        per_position_ce[is_flank] = per_position_ce[is_flank] * flank_weight
+
+    return per_position_ce.mean()
