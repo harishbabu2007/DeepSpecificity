@@ -73,6 +73,11 @@ for epoch in range(EPOCHS):
 
         batch_loss = 0.0
 
+        loss_pwm_total = 0.0
+        loss_nopwm_total = 0.0
+        pwm_count = 0
+        nopwm_count = 0
+
         for item in batch:
             protein_features = item["protein_features"].to(device)
             dna_features = item["dna_features"].to(device)
@@ -107,6 +112,18 @@ for epoch in range(EPOCHS):
             loss = (loss_fwd + loss_rc) / 2
 
             batch_loss += loss
+
+            if item["pwm_present"]:
+                loss_pwm_total += loss.item()
+                pwm_count += 1
+            else:
+                loss_nopwm_total += loss.item()
+                nopwm_count += 1
+
+        if pwm_count > 0:
+            wandb.log({"pwm_loss": loss_pwm_total / pwm_count})
+        if nopwm_count > 0:
+            wandb.log({"nopwm_loss": loss_nopwm_total / nopwm_count})
 
         batch_loss = batch_loss / len(batch)
 
