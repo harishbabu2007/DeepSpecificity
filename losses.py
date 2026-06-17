@@ -46,7 +46,9 @@ def masked_ppm_loss_with_one_hot(
     loss = per_position_ce.mean()
 
     # Down-weight samples that have no real PWM
-    if not pwm_present:
+    if pwm_present:
+        loss = torch.clamp(loss, max=0.5)
+    else:
         loss = loss * no_pwm_weight
 
     return loss
