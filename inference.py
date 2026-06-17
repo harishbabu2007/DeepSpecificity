@@ -183,7 +183,7 @@ def inference_model_shape(data, device, checkpoint_path, amap, is_v2):
 
     model = torch.compile(model)
 
-    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    checkpoint = torch.load(checkpoint_path, map_location=device)
 
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
