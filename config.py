@@ -20,7 +20,7 @@ N_ENC_PROT = 4
 N_ENC_PWM = 2
 N_HEAD_PWM = 8
 
-LR = 1e-4
+LR = 3e-5
 WEIGHT_DECAY = 1e-5
 
 BATCH_SIZE = 1
