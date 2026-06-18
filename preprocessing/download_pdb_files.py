@@ -150,9 +150,9 @@ if __name__ == "__main__":
     )
     
     # Save list of downloaded files
-    list_file = os.path.join(args.output_dir, "downloaded_files.txt")
-    with open(list_file, 'w') as f:
-        for path in downloaded_files:
-            f.write(path + "\n")
+    # list_file = os.path.join(args.output_dir, "downloaded_files.txt")
+    # with open(list_file, 'w') as f:
+    #     for path in downloaded_files:
+    #         f.write(path + "\n")
     
-    print(f"\nList of downloaded files saved to {list_file}")
+    # print(f"\nList of downloaded files saved to {list_file}")
