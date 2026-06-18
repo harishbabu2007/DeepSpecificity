@@ -69,11 +69,14 @@ def build_dna_labels(dna_pairs):
     return labels
 
 
-def preprocess(pdb_path, device):
+def preprocess(pdb_path, device, nohb):
     pdb_name = os.path.basename(pdb_path)
     pdb_id = os.path.splitext(pdb_name)[0]
 
-    hydrogenated_pdb = hygrogenate_pdb(pdb_path)
+    if nohb:
+        hydrogenated_pdb = pdb_path
+    else:
+        hydrogenated_pdb = hygrogenate_pdb(pdb_path)
 
     try:
         structure, protein_residues, dna_pairs = load_and_validate(hydrogenated_pdb)
@@ -81,15 +84,19 @@ def preprocess(pdb_path, device):
 
         dna_features = generate_dna_features(dna_pairs, centroid)
         protein_features = generate_protein_features(protein_residues, centroid)
-        bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
+        if nohb:
+            bond_matrix = torch.zeros((len(protein_residues), len(dna_pairs)))
+        else:
+            bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
 
         protein_labels = build_protein_labels(protein_residues)
         dna_labels = build_dna_labels(dna_pairs)
 
         dna_shape_features = get_dna_shape_features(hydrogenated_pdb, dna_pairs)
     finally:
-        if os.path.exists(hydrogenated_pdb):
-            os.remove(hydrogenated_pdb)
+        if not nohb:
+            if os.path.exists(hydrogenated_pdb):
+                os.remove(hydrogenated_pdb)
 
     return {
         "pdb_id": pdb_id,
@@ -167,19 +174,19 @@ def inference_model_shape(data, device, checkpoint_path, amap, is_v2):
         ).to(device)
     else:
         pass
-        # model = DeepSpecificityWithShapeV1(
-        #     len_dna_features=DNA_FEATURE_DIM,
-        #     len_prot_features=PROTEIN_FEATURE_DIM,
-        #     len_dna_shape_features=DNA_SHAPE_FEATURES_DIM,
-        #     d_model=D_MODEL,
-        #     n_head_dna=N_HEAD_DNA,
-        #     n_enc_dna=N_ENC_DNA,
-        #     n_head_prot=N_HEAD_PROT,
-        #     n_enc_prot=N_ENC_PROT,
-        #     n_cross_att_heads=N_CROSS_HEADS,
-        #     n_enc_pwm=N_ENC_PWM,
-        #     n_head_pwm=N_HEAD_PWM,
-        # ).to(device)
+        model = DeepSpecificityWithShapeV1(
+            len_dna_features=DNA_FEATURE_DIM,
+            len_prot_features=PROTEIN_FEATURE_DIM,
+            len_dna_shape_features=DNA_SHAPE_FEATURES_DIM,
+            d_model=D_MODEL,
+            n_head_dna=N_HEAD_DNA,
+            n_enc_dna=N_ENC_DNA,
+            n_head_prot=N_HEAD_PROT,
+            n_enc_prot=N_ENC_PROT,
+            n_cross_att_heads=N_CROSS_HEADS,
+            n_enc_pwm=N_ENC_PWM,
+            n_head_pwm=N_HEAD_PWM,
+        ).to(device)
 
     model = torch.compile(model)
 
@@ -303,12 +310,13 @@ def main():
     parser.add_argument("--v2", action="store_true")
     parser.add_argument("--shape", action="store_true")
     parser.add_argument("--amap", action="store_true")
+    parser.add_argument("--nohb", action="store_true")
 
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data = preprocess(args.pdb, device)
+    data = preprocess(args.pdb, device, args.nohb)
     if args.shape:
         ppm_fwd, ppm_rc = inference_model_shape(data, device, args.checkpoint, args.amap, args.v2)
     else:
