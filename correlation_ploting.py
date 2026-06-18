@@ -27,7 +27,7 @@ NUCLEOTIDES = ["A", "C", "G", "T"]
 
 
 def compute_and_save_strand_attributions(
-    model, dna_seq_tensor, dna_shape_tensor, protein_tensor, is_rev, output_dir, steps=100
+    model, dna_seq_tensor, dna_shape_tensor, protein_tensor, is_rev, output_dir, steps=AMAP_SAMPLING
 ):
     """
     Computes position-specific Integrated Gradients for a single strand pass.
