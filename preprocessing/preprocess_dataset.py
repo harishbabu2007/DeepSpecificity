@@ -21,18 +21,30 @@ from openmm.app import PDBFile
 from pdbfixer import PDBFixer
 import sys
 
-def load_motif_annotations(json_path):
-    with open(json_path, 'r') as f:
-        data = json.load(f)
-    
+
+def load_motif_annotations(json_paths):
+    # accept either a single path or a list
+    if isinstance(json_paths, str):
+        json_paths = [json_paths]
+
     annotations = {}
-    for item in data:
-        if isinstance(item, list) and len(item) >= 2:
-            pdb_id = str(item[0]).lower()
-            motifs = item[1]
-            if len(pdb_id) == 4 and motifs:
-                annotations[pdb_id] = motifs
+    for json_path in json_paths:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+
+        for item in data:
+            if isinstance(item, list) and len(item) >= 2:
+                pdb_id = str(item[0]).lower()
+                motifs = item[1]
+                if len(pdb_id) == 4 and motifs:
+                    # merge: if pdb_id already exists, extend its motif list
+                    if pdb_id in annotations:
+                        annotations[pdb_id].extend(motifs)
+                    else:
+                        annotations[pdb_id] = motifs
+
     return annotations
+
 
 def compute_ic(pwm_col, epsilon=1e-9):
     """Compute normalized Information Content (0.0 to 2.0 bits)."""
@@ -187,7 +199,9 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
 
         dna_features = generate_dna_features(dna_pairs, centroid)
         protein_features = generate_protein_features(protein_residues, centroid)
-        bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
+
+        # bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
+        bond_matrix_array = np.array([])  # no bond matrix for now
 
         protein_labels = build_protein_labels(protein_residues)
         dna_labels = build_dna_labels(dna_pairs)
@@ -287,7 +301,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             dna_features,
             dna_shape_features,
             protein_features,
-            bond_matrix,
+            bond_matrix_array,
             protein_labels,
             dna_labels,
             pwm_present,
@@ -326,8 +340,16 @@ def process_directory(pdb_dir, output_dir, hydrogenated_dir):
     jaspar_indices = build_jaspar_index()
 
     # Initialize the JASPAR index ONCE before the loop begins
-    print("Loading Motif Annotations from specificity_train.json...")
-    annotations = load_motif_annotations("../data/specificity_train.json")
+    print("Loading Motif Annotations.")
+    annotations = load_motif_annotations(
+        [
+            "../data/specificity_train.json",
+            "../data/specificity_test.json",
+            "../data/specificity_valid.json",
+            "../data/specificity_evaluation_test.json",
+            "../data/specificity_evaluation_valid.json"
+        ]
+    )
     print(f"Loaded {len(annotations)} annotated structures.\n")
 
     for pdb_path in tqdm(pdb_files):
