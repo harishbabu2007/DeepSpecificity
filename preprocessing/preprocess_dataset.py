@@ -7,7 +7,7 @@ import numpy as np
 
 from tqdm import tqdm
 from pdb_parser import load_and_validate, StructureRejected
-from coordinate_utils import compute_complex_centroid
+from coordinate_utils import compute_complex_centroid, compute_canonical_rotation
 from dna_features import generate_dna_features
 from protein_features import generate_protein_features
 from bond_matrix import generate_bond_matrix
@@ -196,9 +196,12 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
     try:
         structure, protein_residues, dna_pairs = load_and_validate(hydrogenated_pdb)
         centroid = compute_complex_centroid(protein_residues, dna_pairs)
-
-        dna_features = generate_dna_features(dna_pairs, centroid)
-        protein_features = generate_protein_features(protein_residues, centroid)
+        
+        # --- NEW: compute canonical rotation once, pass it to both feature generators
+        rotation = compute_canonical_rotation(protein_residues, dna_pairs, centroid)
+        
+        dna_features     = generate_dna_features(dna_pairs, centroid, rotation=rotation)
+        protein_features = generate_protein_features(protein_residues, centroid, rotation=rotation)
 
         # bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
         bond_matrix_array = np.array([])  # no bond matrix for now

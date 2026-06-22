@@ -18,7 +18,10 @@ preprocessing_dir = Path(__file__).resolve().parent / "preprocessing"
 sys.path.append(str(preprocessing_dir))
 
 from preprocessing.pdb_parser import load_and_validate, StructureRejected
-from preprocessing.coordinate_utils import compute_complex_centroid
+from preprocessing.coordinate_utils import (
+    compute_complex_centroid,
+    compute_canonical_rotation,
+)
 from preprocessing.dna_features import generate_dna_features
 from preprocessing.protein_features import generate_protein_features
 from preprocessing.bond_matrix import generate_bond_matrix
@@ -80,10 +83,12 @@ def preprocess(pdb_path, device, nohb):
 
     try:
         structure, protein_residues, dna_pairs = load_and_validate(hydrogenated_pdb)
-        centroid = compute_complex_centroid(protein_residues, dna_pairs)
-
-        dna_features = generate_dna_features(dna_pairs, centroid)
-        protein_features = generate_protein_features(protein_residues, centroid)
+        centroid  = compute_complex_centroid(protein_residues, dna_pairs)
+        rotation  = compute_canonical_rotation(protein_residues, dna_pairs, centroid)
+        
+        dna_features     = generate_dna_features(dna_pairs, centroid, rotation=rotation)
+        protein_features = generate_protein_features(protein_residues, centroid, rotation=rotation)
+        
         if nohb:
             bond_matrix = torch.zeros((len(protein_residues), len(dna_pairs)))
         else:

@@ -10,7 +10,7 @@ from residue_definitions import SIDECHAIN_ATOMS
 
 from geometry import pad_coordinate_list
 
-from coordinate_utils import transform_coordinate
+from coordinate_utils import transform_coordinate, transform_coordinate_canonical
 
 
 def one_hot_residue(residue_name):
@@ -22,9 +22,10 @@ def one_hot_residue(residue_name):
     return vec
 
 
-def extract_backbone_coordinates(residue, centroid):
+def extract_backbone_coordinates(residue, centroid, rotation=None):
     """
     Returns 12 values.
+    If rotation is provided, applies canonical rotation before scaling.
     """
 
     coords = []
@@ -33,11 +34,12 @@ def extract_backbone_coordinates(residue, centroid):
 
         if atom_name in residue:
 
-            coords.append(
-                transform_coordinate(
-                    residue[atom_name].coord.astype(np.float32), centroid
-                )
-            )
+            raw = residue[atom_name].coord.astype(np.float32)
+
+            if rotation is not None:
+                coords.append(transform_coordinate_canonical(raw, centroid, rotation))
+            else:
+                coords.append(transform_coordinate(raw, centroid))
 
         else:
 
@@ -46,9 +48,10 @@ def extract_backbone_coordinates(residue, centroid):
     return pad_coordinate_list(coords, len(PROTEIN_BACKBONE_ORDER))
 
 
-def extract_sidechain_coordinates(residue, centroid):
+def extract_sidechain_coordinates(residue, centroid, rotation=None):
     """
     Returns 30 values.
+    If rotation is provided, applies canonical rotation before scaling.
     """
 
     coords = []
@@ -61,11 +64,12 @@ def extract_sidechain_coordinates(residue, centroid):
 
         if atom_name in residue:
 
-            coords.append(
-                transform_coordinate(
-                    residue[atom_name].coord.astype(np.float32), centroid
-                )
-            )
+            raw = residue[atom_name].coord.astype(np.float32)
+
+            if rotation is not None:
+                coords.append(transform_coordinate_canonical(raw, centroid, rotation))
+            else:
+                coords.append(transform_coordinate(raw, centroid))
 
         else:
 
@@ -74,7 +78,7 @@ def extract_sidechain_coordinates(residue, centroid):
     return pad_coordinate_list(coords, MAX_PROTEIN_SIDECHAIN_HEAVY_ATOMS)
 
 
-def build_residue_features(residue, centroid):
+def build_residue_features(residue, centroid, rotation=None):
     """
     Returns 62 values.
     """
@@ -83,9 +87,9 @@ def build_residue_features(residue, centroid):
 
     one_hot = one_hot_residue(residue_name)
 
-    backbone = extract_backbone_coordinates(residue, centroid)
+    backbone = extract_backbone_coordinates(residue, centroid, rotation)
 
-    sidechain = extract_sidechain_coordinates(residue, centroid)
+    sidechain = extract_sidechain_coordinates(residue, centroid, rotation)
 
     feature_vector = np.concatenate([one_hot, backbone, sidechain])
 
@@ -94,16 +98,18 @@ def build_residue_features(residue, centroid):
     return feature_vector
 
 
-def generate_protein_features(protein_residues, centroid):
+def generate_protein_features(protein_residues, centroid, rotation=None):
     """
-    Returns [Np, 62]
+    Returns [Np, 62].
+    Pass rotation=R to apply canonical orientation.
+    Pass rotation=None (default) to use original behaviour.
     """
 
     rows = []
 
     for residue in protein_residues:
 
-        rows.append(build_residue_features(residue, centroid))
+        rows.append(build_residue_features(residue, centroid, rotation))
 
     if len(rows) == 0:
 
