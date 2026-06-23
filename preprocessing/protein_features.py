@@ -4,6 +4,8 @@ from constants import (
     AA_TO_INDEX,
     PROTEIN_BACKBONE_ORDER,
     MAX_PROTEIN_SIDECHAIN_HEAVY_ATOMS,
+    COORDINATE_SCALE_FACTOR,
+    PROTEIN_FEATURE_SIZE,
 )
 
 from residue_definitions import SIDECHAIN_ATOMS
@@ -11,6 +13,29 @@ from residue_definitions import SIDECHAIN_ATOMS
 from geometry import pad_coordinate_list
 
 from coordinate_utils import transform_coordinate, transform_coordinate_canonical
+
+
+def nearest_dna_distance_feature(residue, dna_pairs):
+    if "CA" not in residue:
+        return np.array([0.0], dtype=np.float32)
+
+    residue_coord = residue["CA"].coord.astype(np.float32)
+
+    distances = []
+
+    for forward_residue, reverse_residue in dna_pairs:
+
+        if "C1'" in forward_residue:
+            distances.append(
+                np.linalg.norm(
+                    residue_coord - forward_residue["C1'"].coord.astype(np.float32)
+                )
+            )
+
+    if len(distances) == 0:
+        return np.array([0.0], dtype=np.float32)
+
+    return np.array([min(distances) / COORDINATE_SCALE_FACTOR], dtype=np.float32)
 
 
 def one_hot_residue(residue_name):
@@ -78,7 +103,7 @@ def extract_sidechain_coordinates(residue, centroid, rotation=None):
     return pad_coordinate_list(coords, MAX_PROTEIN_SIDECHAIN_HEAVY_ATOMS)
 
 
-def build_residue_features(residue, centroid, rotation=None):
+def build_residue_features(residue, dna_pairs, centroid, rotation=None):
     """
     Returns 62 values.
     """
@@ -91,14 +116,24 @@ def build_residue_features(residue, centroid, rotation=None):
 
     sidechain = extract_sidechain_coordinates(residue, centroid, rotation)
 
-    feature_vector = np.concatenate([one_hot, backbone, sidechain])
+    relative_distance = nearest_dna_distance_feature(
+        residue,
+        dna_pairs
+    )
 
-    assert len(feature_vector) == 62
+    feature_vector = np.concatenate([
+        one_hot,
+        backbone,
+        sidechain,
+        relative_distance
+    ])
+
+    assert len(feature_vector) == PROTEIN_FEATURE_SIZE
 
     return feature_vector
 
 
-def generate_protein_features(protein_residues, centroid, rotation=None):
+def generate_protein_features(protein_residues, dna_pairs, centroid, rotation=None):
     """
     Returns [Np, 62].
     Pass rotation=R to apply canonical orientation.
@@ -109,7 +144,7 @@ def generate_protein_features(protein_residues, centroid, rotation=None):
 
     for residue in protein_residues:
 
-        rows.append(build_residue_features(residue, centroid, rotation))
+        rows.append(build_residue_features(residue, dna_pairs,  centroid, rotation))
 
     if len(rows) == 0:
 

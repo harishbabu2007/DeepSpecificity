@@ -1,9 +1,10 @@
 import torch
+from config import DNA_FEATURE_DIM
 
 def split_dna_features(dna_features):
-    dna_fwd = dna_features[:, :70]
+    dna_fwd = dna_features[:, :DNA_FEATURE_DIM]
 
-    dna_rc = dna_features[:, 70:]
+    dna_rc = dna_features[:, DNA_FEATURE_DIM:]
     dna_rc = torch.flip(dna_rc, dims=[0])
 
     return dna_fwd, dna_rc

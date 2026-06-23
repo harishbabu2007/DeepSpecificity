@@ -8,6 +8,38 @@ from geometry import pad_coordinate_list
 
 from coordinate_utils import transform_coordinate, transform_coordinate_canonical
 
+from constants import COORDINATE_SCALE_FACTOR, DNA_FEATURE_SIZE
+
+
+def get_nearest_residue_distances(forward_residue, protein_residues, k=8):
+    if "C1'" not in forward_residue:
+        return np.zeros(k, dtype=np.float32)
+
+    dna_coord = forward_residue["C1'"].coord.astype(np.float32)
+
+    distances = []
+
+    for residue in protein_residues:
+
+        if "CA" not in residue:
+            continue
+
+        protein_coord = residue["CA"].coord.astype(np.float32)
+
+        distances.append(np.linalg.norm(dna_coord - protein_coord))
+
+    if len(distances) == 0:
+        return np.zeros(k, dtype=np.float32)
+
+    distances = np.sort(np.asarray(distances))
+
+    nearest = distances[:k]
+
+    if len(nearest) < k:
+        nearest = np.pad(nearest, (0, k - len(nearest)), mode="edge")
+
+    return nearest.astype(np.float32) / COORDINATE_SCALE_FACTOR
+
 
 def one_hot_base(base):
 
@@ -91,7 +123,7 @@ def build_single_base_features(residue, centroid, rotation=None):
 
 
 def build_paired_base_features(
-    forward_residue, reverse_residue, centroid, rotation=None
+    forward_residue, reverse_residue, protein_residues, centroid, rotation=None
 ):
     """
     Returns 140 values.
@@ -109,14 +141,27 @@ def build_paired_base_features(
             reverse_residue, centroid, rotation
         )
 
-    feature_vector = np.concatenate([forward_features, reverse_features])
+    relative_features = get_nearest_residue_distances(
+        forward_residue,
+        protein_residues,
+        k=8
+    )
 
-    assert len(feature_vector) == 140
+    feature_vector = np.concatenate(
+        [
+            forward_features,
+            relative_features,
+            reverse_features,
+            relative_features,
+        ]
+    )
+
+    assert len(feature_vector) == DNA_FEATURE_SIZE
 
     return feature_vector
 
 
-def generate_dna_features(dna_pairs, centroid, rotation=None):
+def generate_dna_features(dna_pairs, protein_residues, centroid, rotation=None):
     """
     Returns [Nd, 140].
     Pass rotation=R to apply canonical orientation.
@@ -128,7 +173,7 @@ def generate_dna_features(dna_pairs, centroid, rotation=None):
     for forward_residue, reverse_residue in dna_pairs:
 
         row = build_paired_base_features(
-            forward_residue, reverse_residue, centroid, rotation
+            forward_residue, reverse_residue, protein_residues, centroid, rotation
         )
 
         rows.append(row)

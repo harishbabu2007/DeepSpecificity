@@ -86,8 +86,19 @@ def preprocess(pdb_path, device, nohb):
         centroid  = compute_complex_centroid(protein_residues, dna_pairs)
         rotation  = compute_canonical_rotation(protein_residues, dna_pairs, centroid)
         
-        dna_features     = generate_dna_features(dna_pairs, centroid, rotation=rotation)
-        protein_features = generate_protein_features(protein_residues, centroid, rotation=rotation)
+        dna_features = generate_dna_features(
+            dna_pairs,
+            protein_residues,
+            centroid,
+            rotation=rotation
+        )
+
+        protein_features = generate_protein_features(
+            protein_residues,
+            dna_pairs,
+            centroid,
+            rotation=rotation
+        )
         
         if nohb:
             bond_matrix = torch.zeros((len(protein_residues), len(dna_pairs)))

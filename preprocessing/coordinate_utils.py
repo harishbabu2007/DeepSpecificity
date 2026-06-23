@@ -152,7 +152,7 @@ def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
     # Rows of R = new basis vectors expressed in the original frame
     # ------------------------------------------------------------------
     R = np.stack([pc2, pc3, pc1], axis=0).astype(np.float32)  # shape (3, 3)
-
+    # R[2] *= -1.0
     # ------------------------------------------------------------------
     # Step 4 — Disambiguate sign: protein should be on positive-X side
     # ------------------------------------------------------------------

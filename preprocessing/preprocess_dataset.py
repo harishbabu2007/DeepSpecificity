@@ -200,8 +200,22 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
         # --- NEW: compute canonical rotation once, pass it to both feature generators
         rotation = compute_canonical_rotation(protein_residues, dna_pairs, centroid)
         
-        dna_features     = generate_dna_features(dna_pairs, centroid, rotation=rotation)
-        protein_features = generate_protein_features(protein_residues, centroid, rotation=rotation)
+        dna_features = generate_dna_features(
+            dna_pairs,
+            protein_residues,
+            centroid,
+            rotation=rotation
+        )
+
+        protein_features = generate_protein_features(
+            protein_residues,
+            dna_pairs,
+            centroid,
+            rotation=rotation
+        )
+
+        print(dna_features[:, 70:78])
+        sys.exit("break")
 
         # bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
         bond_matrix_array = np.array([])  # no bond matrix for now
