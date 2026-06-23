@@ -214,8 +214,6 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             rotation=rotation
         )
 
-        print(dna_features[:, 70:78])
-        sys.exit("break")
 
         # bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
         bond_matrix_array = np.array([])  # no bond matrix for now
