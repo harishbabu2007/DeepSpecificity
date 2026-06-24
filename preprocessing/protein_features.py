@@ -16,9 +16,9 @@ from coordinate_utils import transform_coordinate, transform_coordinate_canonica
 
 
 def nearest_dna_distance_feature(residue, dna_pairs):
-    fallback = np.array([1.0, 0.0], dtype=np.float32)
+    assert "CA" in residue
     if "CA" not in residue:
-        return fallback
+        return np.array([1.0, 0.0], dtype=np.float32)
 
     residue_coord = residue["CA"].coord.astype(np.float32)
 
@@ -33,8 +33,9 @@ def nearest_dna_distance_feature(residue, dna_pairs):
                 )
             )
 
+    assert len(distances) > 0
     if len(distances) == 0:
-        fallback
+        return np.array([1.0, 0.0], dtype=np.float32)
 
     min_distance = min(distances)
     interface_flag = 1.0 if min_distance < 6.0 else 0.0
