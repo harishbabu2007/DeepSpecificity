@@ -35,7 +35,12 @@ def nearest_dna_distance_feature(residue, dna_pairs):
     if len(distances) == 0:
         return np.array([0.0], dtype=np.float32)
 
-    return np.array([min(distances) / COORDINATE_SCALE_FACTOR], dtype=np.float32)
+    min_distance = min(distances)
+    interface_flag = 1.0 if min_distance < 6.0 else 0.0
+
+    return np.array(
+        [min_distance / COORDINATE_SCALE_FACTOR, interface_flag], dtype=np.float32
+    )
 
 
 def one_hot_residue(residue_name):
