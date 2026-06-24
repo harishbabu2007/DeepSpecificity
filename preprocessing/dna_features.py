@@ -179,7 +179,6 @@ def generate_dna_features(dna_pairs, protein_residues, centroid, rotation=None):
         rows.append(row)
 
     if len(rows) == 0:
-
-        return np.zeros((0, 140), dtype=np.float32)
+        return np.zeros((0, DNA_FEATURE_SIZE), dtype=np.float32)
 
     return np.asarray(rows, dtype=np.float32)

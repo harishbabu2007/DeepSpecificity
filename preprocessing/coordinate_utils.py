@@ -145,6 +145,11 @@ def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
     # Re-normalise (SVD already gives unit vectors, but cross product may drift)
     pc3 = pc3 / (np.linalg.norm(pc3) + 1e-8)
 
+    first_bp = c1_coords[0]
+
+    if np.dot(first_bp, pc1) < 0:
+        pc1 *= -1.0
+
     # ------------------------------------------------------------------
     # Step 3 — Build rotation matrix
     # We want:   new_Z = pc1,  new_X = pc2,  new_Y = pc3

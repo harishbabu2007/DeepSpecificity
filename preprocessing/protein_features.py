@@ -6,6 +6,7 @@ from constants import (
     MAX_PROTEIN_SIDECHAIN_HEAVY_ATOMS,
     COORDINATE_SCALE_FACTOR,
     PROTEIN_FEATURE_SIZE,
+    RESIDUE_BASE_CUTOFF
 )
 
 from residue_definitions import SIDECHAIN_ATOMS
@@ -38,7 +39,7 @@ def nearest_dna_distance_feature(residue, dna_pairs):
         return np.array([1.0, 0.0], dtype=np.float32)
 
     min_distance = min(distances)
-    interface_flag = 1.0 if min_distance < 6.0 else 0.0
+    interface_flag = 1.0 if min_distance < RESIDUE_BASE_CUTOFF else 0.0
 
     return np.array(
         [min_distance / COORDINATE_SCALE_FACTOR, interface_flag], dtype=np.float32
