@@ -11,7 +11,7 @@ from constants import (
 
 from residue_definitions import SIDECHAIN_ATOMS
 
-from geometry import pad_coordinate_list
+from geometry import pad_coordinate_list, get_dna_c1_atom
 
 from coordinate_utils import transform_coordinate, transform_coordinate_canonical
 
@@ -26,13 +26,10 @@ def nearest_dna_distance_feature(residue, dna_pairs):
     distances = []
 
     for forward_residue, reverse_residue in dna_pairs:
+        c1_atom = get_dna_c1_atom(forward_residue)
 
-        if "C1'" in forward_residue:
-            distances.append(
-                np.linalg.norm(
-                    residue_coord - forward_residue["C1'"].coord.astype(np.float32)
-                )
-            )
+        if c1_atom is not None:
+            distances.append(np.linalg.norm(residue_coord - c1_atom.coord.astype(np.float32)))
 
     assert len(distances) > 0
     if len(distances) == 0:
@@ -156,6 +153,6 @@ def generate_protein_features(protein_residues, dna_pairs, centroid, rotation=No
 
     if len(rows) == 0:
 
-        return np.zeros((0, 62), dtype=np.float32)
+        return np.zeros((0, PROTEIN_FEATURE_SIZE), dtype=np.float32)
 
     return np.asarray(rows, dtype=np.float32)

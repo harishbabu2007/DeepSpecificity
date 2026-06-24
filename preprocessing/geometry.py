@@ -106,6 +106,33 @@ def get_atom_coord(residue, atom_name):
 
     return residue[atom_name].coord.astype(np.float32)
 
+def get_dna_c1_atom(residue):
+    """
+    Supports both modern (C1') and legacy (C1*) PDB naming.
+    """
+
+    if "C1'" in residue:
+        return residue["C1'"]
+
+    if "C1*" in residue:
+        return residue["C1*"]
+
+    return None
+
+
+def get_dna_atom(residue, atom_name):
+
+    if atom_name in residue:
+        return residue[atom_name]
+
+    if "'" in atom_name:
+
+        legacy_name = atom_name.replace("'", "*")
+
+        if legacy_name in residue:
+            return residue[legacy_name]
+
+    return None
 
 def safe_get_atom_coord(residue, atom_name):
     """

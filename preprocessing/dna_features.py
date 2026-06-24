@@ -4,7 +4,7 @@ from constants import DNA_BACKBONE_ORDER, MAX_DNA_BASE_HEAVY_ATOMS, BASE_TO_INDE
 
 from dna_definitions import BASE_HEAVY_ATOMS, BASE_NAME_MAP
 
-from geometry import pad_coordinate_list
+from geometry import pad_coordinate_list, get_dna_c1_atom, get_dna_atom
 
 from coordinate_utils import transform_coordinate, transform_coordinate_canonical
 
@@ -12,10 +12,12 @@ from constants import COORDINATE_SCALE_FACTOR, DNA_FEATURE_SIZE
 
 
 def get_nearest_residue_distances(forward_residue, protein_residues, k=8):
-    if "C1'" not in forward_residue:
+    c1_atom = get_dna_c1_atom(forward_residue)
+
+    if c1_atom is None:
         return np.zeros(k, dtype=np.float32)
 
-    dna_coord = forward_residue["C1'"].coord.astype(np.float32)
+    dna_coord = c1_atom.coord.astype(np.float32)
 
     distances = []
 
@@ -64,10 +66,10 @@ def extract_backbone_coordinates(residue, centroid, rotation=None):
     coords = []
 
     for atom_name in DNA_BACKBONE_ORDER:
+        atom = get_dna_atom(residue, atom_name)
 
-        if atom_name in residue:
-
-            raw = residue[atom_name].coord.astype(np.float32)
+        if atom is not None:
+            raw = atom.coord.astype(np.float32)
 
             if rotation is not None:
                 coords.append(transform_coordinate_canonical(raw, centroid, rotation))

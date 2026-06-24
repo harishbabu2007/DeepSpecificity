@@ -86,7 +86,10 @@ def extract_dna_shape_features(json_data, dna_pairs):
         c2, n2 = parse_dssr_nt(p.get("nt2"))
 
         # Find which idx this DSSR pair belongs to
-        node_idx = res_to_node_idx.get((c1, n1)) or res_to_node_idx.get((c2, n2))
+        node_idx = res_to_node_idx.get((c1, n1))
+
+        if node_idx is None:
+            node_idx = res_to_node_idx.get((c2, n2))
 
         if node_idx is not None:
             vals = p.get("bp_params")

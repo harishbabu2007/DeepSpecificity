@@ -12,7 +12,7 @@ from dna_definitions import BASE_NAME_MAP, CANONICAL_PAIRS
 from dna_definitions import WC_PAIR_ATOMS
 from constants import WC_PAIR_DISTANCE_THRESHOLD
 
-from geometry import distance
+from geometry import distance, get_dna_c1_atom
 
 
 class StructureRejected(Exception):
@@ -371,6 +371,14 @@ def load_and_validate(pdb_path):
     protein_residues = extract_protein_residues(model)
 
     dna_pairs = find_base_pairs(model)
+    
+    for forward_residue, reverse_residue in dna_pairs:
+        if get_dna_c1_atom(forward_residue) is None:
+            raise StructureRejected(
+                f"Missing C1 atom in residue "
+                f"{forward_residue.get_resname()} "
+                f"{forward_residue.id[1]}"
+            )
 
     if len(protein_residues) == 0:
 

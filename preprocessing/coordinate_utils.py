@@ -1,7 +1,7 @@
 import numpy as np
 
 from constants import COORDINATE_SCALE_FACTOR
-
+from geometry import get_dna_c1_atom
 
 def compute_complex_centroid(protein_residues, dna_pairs):
     """
@@ -114,15 +114,15 @@ def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
     c1_coords = []
 
     for forward_res, reverse_res in dna_pairs:
-
         for residue in [forward_res, reverse_res]:
-
             if residue is None:
                 continue
 
-            if "C1'" in residue:
-                coord = residue["C1'"].coord.astype(np.float32)
-                c1_coords.append(coord - centroid)  # centre only, no scale yet
+            c1_atom = get_dna_c1_atom(residue)
+
+            if c1_atom is not None:
+                coord = c1_atom.coord.astype(np.float32)
+                c1_coords.append(coord - centroid)
 
     if len(c1_coords) < 3:
         # Not enough atoms to run PCA — return identity (no rotation)
@@ -146,8 +146,11 @@ def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
     pc3 = pc3 / (np.linalg.norm(pc3) + 1e-8)
 
     first_bp = c1_coords[0]
+    last_bp = c1_coords[-1]
 
-    if np.dot(first_bp, pc1) < 0:
+    dna_direction = last_bp - first_bp
+
+    if np.dot(dna_direction, pc1) < 0:
         pc1 *= -1.0
 
     # ------------------------------------------------------------------
