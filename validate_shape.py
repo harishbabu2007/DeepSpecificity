@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from config import *
 from pdna_dataset import PDNADataset
-from architecture.model_v2_shape import DeepSpecificityWithShape
+from architecture.model import DeepSpecificityWithShape
 from losses import masked_ppm_loss_with_one_hot
 from utils import split_dna_features_no_seq, split_dna_shape_features
 
