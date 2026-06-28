@@ -51,7 +51,8 @@ python inference.py \
     --checkpoint checkpoints/best_model.pt
 ```
 
-refer to ```inference.py``` for more options
+- refer to ```inference.py``` for more options.
+- some sample PDBS are provided for inferencing.
 
 The inference pipeline performs:
 
@@ -60,16 +61,16 @@ The inference pipeline performs:
 3. Forward and reverse-complement prediction.
 4. Generation of predicted Position Probability Matrices (PPMs).
 
-Predicted motifs can subsequently be converted to PWMs or visualized using standard sequence logo tools.
+Predicted motifs is converted to PWMs for visualization using logomaker.
 
 ## Repository Overview
 
-* `architecture/` — Transformer model implementation.
+* `architecture/` - Transformer model implementation.
 * `preprocessing/` - Dataset generation and feature extraction utilities.
-* `inference.py` — End-to-end inference pipeline.
-* `trainer.py` — Model training script.
-* `losses.py` — implemented loss function .
-* `utils.py` — Utility functions used throughout the project.
+* `inference.py` - End-to-end inference pipeline.
+* `trainer.py` - Model training script.
+* `losses.py` - implemented loss function .
+* `utils.py` - Utility functions used throughout the project.
 
 ## License
 
