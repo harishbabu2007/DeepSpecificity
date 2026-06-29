@@ -134,8 +134,7 @@ def build_paired_base_features(
     forward_features = build_single_base_features(forward_residue, centroid, rotation)
 
     if reverse_residue is None:
-
-        reverse_features = np.zeros(70, dtype=np.float32)
+        reverse_features = np.zeros(len(forward_features), dtype=np.float32)
 
     else:
 
