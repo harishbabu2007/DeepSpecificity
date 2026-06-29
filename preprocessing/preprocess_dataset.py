@@ -302,14 +302,10 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
                 target_pwm_reverse = target_pwm_reverse_5to3
                 alignment_mask_reverse = alignment_mask_reverse_5to3
 
-            # alignment_mask_forward = np.ones(N_d, dtype=bool)
-            # alignment_mask_reverse = np.ones(N_d, dtype=bool)
-
         # ---- DNA Alignment
 
         output_path = build_output_path(pdb_path, output_dir)
 
-        # 2. Save everything including the PWM matrix
         save_npz(
             output_path,
             pdb_id,
@@ -323,19 +319,10 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             target_pwm_forward,
             alignment_mask_forward,
             target_pwm_reverse,
-            alignment_mask_reverse,  # Passed to the writer
+            alignment_mask_reverse,  
         )
     finally:
         pass
-
-    # return {
-    #     "pdb_id": pdb_id,
-    #     "num_residues": protein_features.shape[0],
-    #     "num_base_pairs": dna_features.shape[0],
-    #     "num_hbonds": int(bond_matrix.sum()),
-    #     "pwm_shape": pwm_matrix.shape,
-    # }
-
 
 def process_directory(pdb_dir, output_dir, hydrogenated_dir):
 

@@ -4,7 +4,7 @@ import numpy as np
 from pyjaspar import jaspardb
 import sys
 
-from constants import DNA_BACKBONE_ORDER, COORDINATE_SCALE_FACTOR
+from constants import DNA_BACKBONE_ORDER, COORDINATE_SCALE_FACTOR, DNA_FEATURE_SIZE
 
 
 def parse_raw_fallback_file(file_path, is_cisbp=False):
@@ -159,98 +159,162 @@ def get_hybrid_pwm(pdb_id, annotations, jaspar_indices, hoco="../data/motifs/hoc
     return check_local_database_fallbacks(pdb_id, hoco, cis, uni)
 
 
-def generate_spatial_proximity_mask(dna_features, protein_features, distance_threshold_angstroms=7.0):
+def generate_spatial_proximity_mask(
+    dna_features,
+    protein_features,
+    distance_threshold_angstroms=7.0,
+):
     """
-    Identifies which DNA bases are spatially close to any real protein side-chain atom.
-    
-    Returns:
-        fwd_proximity_mask: Boolean array of shape (N_dna,) -> True if near protein
-        rev_proximity_mask: Boolean array of shape (N_dna,) -> True if near protein
+    Identifies DNA positions that are spatially close to any protein
+    side-chain atom.
+
+    A nucleotide is considered proximal if ANY of its representative
+    atoms (P, C1', N1/N9) lie within the distance threshold.
     """
+
     N_d = dna_features.shape[0]
+
+    HALF_DNA_FEATURE_SIZE = DNA_FEATURE_SIZE // 2
+
+    # ------------------------------------------------------------------
+    # Forward strand indices
+    # ------------------------------------------------------------------
 
     p_idx = DNA_BACKBONE_ORDER.index("P")
     c1_idx = DNA_BACKBONE_ORDER.index("C1'")
 
-    fwd_p_start = 4 + (p_idx * 3)
-    fwd_c1_start = 4 + (c1_idx * 3)
-    fwd_base_start = 4 + (11 * 3)  # Base heavy atoms start at index 37
+    fwd_p_start = p_idx * 3
+    fwd_c1_start = c1_idx * 3
 
-    rev_p_start = 70 + 4 + (p_idx * 3)
-    rev_c1_start = 70 + 4 + (c1_idx * 3)
-    rev_base_start = 70 + 4 + (11 * 3)  # Base heavy atoms start at index 107
+    # N1 / N9 coordinate is stored immediately after backbone coords
+    fwd_base_start = len(DNA_BACKBONE_ORDER) * 3
 
-    # forward Strand coords
-    fwd_c1_coords = (
-        dna_features[:, fwd_c1_start : fwd_c1_start + 3] * COORDINATE_SCALE_FACTOR
-    )
+    # ------------------------------------------------------------------
+    # Reverse strand indices
+    # ------------------------------------------------------------------
+
+    rev_offset = HALF_DNA_FEATURE_SIZE
+
+    rev_p_start = rev_offset + p_idx * 3
+    rev_c1_start = rev_offset + c1_idx * 3
+    rev_base_start = rev_offset + len(DNA_BACKBONE_ORDER) * 3
+
+    # ------------------------------------------------------------------
+    # Extract DNA coordinates
+    # ------------------------------------------------------------------
+
     fwd_p_coords = (
-        dna_features[:, fwd_p_start : fwd_p_start + 3] * COORDINATE_SCALE_FACTOR
-    )
-
-    # vectorized extraction for N1: Purines (A/G) have N1 at local index 6; Pyrimidines (C/T) at local index 0
-    fwd_is_purine = (dna_features[:, 0] == 1.0) | (dna_features[:, 2] == 1.0)
-    fwd_n1_coords = (
-        np.where(
-            fwd_is_purine[:, np.newaxis],
-            dna_features[:, fwd_base_start + 6 * 3 : fwd_base_start + 6 * 3 + 3],
-            dna_features[:, fwd_base_start + 0 * 3 : fwd_base_start + 0 * 3 + 3],
-        )
+        dna_features[:, fwd_p_start:fwd_p_start + 3]
         * COORDINATE_SCALE_FACTOR
     )
 
-    # rev strand coords
-    rev_c1_coords = (
-        dna_features[:, rev_c1_start : rev_c1_start + 3] * COORDINATE_SCALE_FACTOR
+    fwd_c1_coords = (
+        dna_features[:, fwd_c1_start:fwd_c1_start + 3]
+        * COORDINATE_SCALE_FACTOR
     )
+
+    fwd_base_coords = (
+        dna_features[:, fwd_base_start:fwd_base_start + 3]
+        * COORDINATE_SCALE_FACTOR
+    )
+
     rev_p_coords = (
-        dna_features[:, rev_p_start : rev_p_start + 3] * COORDINATE_SCALE_FACTOR
-    )
-
-    rev_is_purine = (dna_features[:, 70] == 1.0) | (dna_features[:, 72] == 1.0)
-    rev_n1_coords = (
-        np.where(
-            rev_is_purine[:, np.newaxis],
-            dna_features[:, rev_base_start + 6 * 3 : rev_base_start + 6 * 3 + 3],
-            dna_features[:, rev_base_start + 0 * 3 : rev_base_start + 0 * 3 + 3],
-        )
+        dna_features[:, rev_p_start:rev_p_start + 3]
         * COORDINATE_SCALE_FACTOR
     )
 
-    # Protein Side-Chain Coordinates
-    sidechain_coords_raw = (
-        protein_features[:, 32:62].reshape(-1, 10, 3) * COORDINATE_SCALE_FACTOR
+    rev_c1_coords = (
+        dna_features[:, rev_c1_start:rev_c1_start + 3]
+        * COORDINATE_SCALE_FACTOR
     )
+
+    rev_base_coords = (
+        dna_features[:, rev_base_start:rev_base_start + 3]
+        * COORDINATE_SCALE_FACTOR
+    )
+
+    # ------------------------------------------------------------------
+    # Protein side-chain coordinates
+    # ------------------------------------------------------------------
+
+    sidechain_coords_raw = (
+        protein_features[:, 32:62]
+        .reshape(-1, 10, 3)
+        * COORDINATE_SCALE_FACTOR
+    )
+
     sidechain_atoms = sidechain_coords_raw.reshape(-1, 3)
-    valid_atom_mask = ~np.all(sidechain_atoms == 0.0, axis=1)
-    valid_sidechain_atoms = sidechain_atoms[valid_atom_mask]
 
-    # Handle Edge Case: No valid protein atoms
+    valid_sidechain_atoms = sidechain_atoms[
+        ~np.all(sidechain_atoms == 0.0, axis=1)
+    ]
+
     if len(valid_sidechain_atoms) == 0:
-        return np.zeros(N_d, dtype=bool), np.zeros(N_d, dtype=bool)
+        return (
+            np.zeros(N_d, dtype=bool),
+            np.zeros(N_d, dtype=bool),
+        )
 
-    # Generate Paired Mask (Excluding unpaired overhangs)
+    # ------------------------------------------------------------------
+    # Ignore unpaired DNA overhangs
+    # ------------------------------------------------------------------
+
     fwd_valid = ~np.all(fwd_c1_coords == 0.0, axis=1)
     rev_valid = ~np.all(rev_c1_coords == 0.0, axis=1)
+
     paired_mask = fwd_valid & rev_valid
 
-    # calculate distance matrix for a given set of targets
+    # ------------------------------------------------------------------
+    # Distance computation
+    # ------------------------------------------------------------------
+
     def check_proximity(dna_coords):
-        diff = dna_coords[:, np.newaxis, :] - valid_sidechain_atoms[np.newaxis, :, :]
-        distances = np.sqrt(np.sum(diff**2, axis=-1))
-        return np.any(distances < distance_threshold_angstroms, axis=1)
+        diff = (
+            dna_coords[:, None, :]
+            - valid_sidechain_atoms[None, :, :]
+        )
 
-    # 7. Compute separate proximity evaluations
-    fwd_near_c1 = check_proximity(fwd_c1_coords)
+        distances = np.linalg.norm(diff, axis=-1)
+
+        return np.any(
+            distances < distance_threshold_angstroms,
+            axis=1,
+        )
+
+    # ------------------------------------------------------------------
+    # Forward strand
+    # ------------------------------------------------------------------
+
     fwd_near_p = check_proximity(fwd_p_coords)
-    fwd_near_n1 = check_proximity(fwd_n1_coords)
+    fwd_near_c1 = check_proximity(fwd_c1_coords)
+    fwd_near_base = check_proximity(fwd_base_coords)
 
-    rev_near_c1 = check_proximity(rev_c1_coords)
+    # ------------------------------------------------------------------
+    # Reverse strand
+    # ------------------------------------------------------------------
+
     rev_near_p = check_proximity(rev_p_coords)
-    rev_near_n1 = check_proximity(rev_n1_coords)
+    rev_near_c1 = check_proximity(rev_c1_coords)
+    rev_near_base = check_proximity(rev_base_coords)
 
-    # 8. Combine with a logical OR (|) and enforce paired mask boundary
-    fwd_proximity_mask = (fwd_near_c1 | fwd_near_p | fwd_near_n1) & paired_mask
-    rev_proximity_mask = (rev_near_c1 | rev_near_p | rev_near_n1) & paired_mask
+    # ------------------------------------------------------------------
+    # Final masks
+    # ------------------------------------------------------------------
 
-    return fwd_proximity_mask, rev_proximity_mask
+    fwd_proximity_mask = (
+        fwd_near_p |
+        fwd_near_c1 |
+        fwd_near_base
+    ) & paired_mask
+
+    rev_proximity_mask = (
+        rev_near_p |
+        rev_near_c1 |
+        rev_near_base
+    ) & paired_mask
+
+    return (
+        fwd_proximity_mask,
+        rev_proximity_mask,
+    )
+

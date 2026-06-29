@@ -85,7 +85,7 @@ def extract_backbone_coordinates(residue, centroid, rotation=None):
 
 def extract_base_coordinates(residue, base_letter, centroid, rotation=None):
     """
-    Returns 33 values.
+    Returns 3 values.
     If rotation is provided, applies canonical rotation before scaling.
     """
 
@@ -115,20 +115,20 @@ def build_single_base_features(residue, centroid, rotation=None):
 
     base = get_base_letter(residue)
 
-    one_hot = one_hot_base(base)
+    # one_hot = one_hot_base(base)
 
     backbone = extract_backbone_coordinates(residue, centroid, rotation)
 
     base_atoms = extract_base_coordinates(residue, base, centroid, rotation)
 
-    return np.concatenate([one_hot, backbone, base_atoms])
+    return np.concatenate([backbone, base_atoms])
 
 
 def build_paired_base_features(
     forward_residue, reverse_residue, protein_residues, centroid, rotation=None
 ):
     """
-    Returns 140 values.
+    Returns 88 values.
     """
 
     forward_features = build_single_base_features(forward_residue, centroid, rotation)
@@ -165,7 +165,7 @@ def build_paired_base_features(
 
 def generate_dna_features(dna_pairs, protein_residues, centroid, rotation=None):
     """
-    Returns [Nd, 140].
+    Returns [Nd, 88].
     Pass rotation=R to apply canonical orientation.
     Pass rotation=None (default) to use original behaviour.
     """

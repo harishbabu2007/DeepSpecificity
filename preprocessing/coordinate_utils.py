@@ -71,6 +71,19 @@ def zero_coord():
     return np.zeros(3, dtype=np.float32)
 
 
+def rotation_about_z(theta):
+
+    c = np.cos(theta)
+    s = np.sin(theta)
+
+    return np.array(
+        [
+            [c, -s, 0],
+            [s, c, 0],
+            [0, 0, 1],
+        ],
+        dtype=np.float32,
+    )
 
 
 def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
@@ -93,19 +106,15 @@ def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
                 c1_coords.append(coord - centroid)
 
     if len(c1_coords) < 3:
-        # Not enough atoms to run PCA — return identity (no rotation)
+        # Not enough atoms to run PCA
         return np.eye(3, dtype=np.float32)
 
     c1_coords = np.array(c1_coords, dtype=np.float32)  # shape (N, 3)
 
     _, _, Vt = np.linalg.svd(c1_coords, full_matrices=False)
 
-    # Vt rows are principal components, sorted largest variance first
     pc1 = Vt[0]  # DNA long axis  (largest variance)
     pc2 = Vt[1]  # perpendicular spread (second largest)
-    pc3 = np.cross(pc1, pc2) 
-
-    pc3 = pc3 / (np.linalg.norm(pc3) + 1e-8)
 
     first_bp = c1_coords[0]
     last_bp = c1_coords[-1]
@@ -114,6 +123,9 @@ def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
 
     if np.dot(dna_direction, pc1) < 0:
         pc1 *= -1.0
+
+    pc3 = np.cross(pc1, pc2)
+    pc3 = pc3 / (np.linalg.norm(pc3) + 1e-8)
 
     # new_Z = pc1,  new_X = pc2,  new_Y = pc3
     # R maps original coords to the new frame:  new_coord = R @ old_coord
@@ -132,13 +144,16 @@ def compute_canonical_rotation(protein_residues, dna_pairs, centroid):
             protein_coords.append(atom.coord.astype(np.float32) - centroid)
 
     if len(protein_coords) > 0:
+        protein_com = np.mean(protein_coords, axis=0)
 
-        protein_com = np.mean(protein_coords, axis=0)  # centre of mass, centred
         protein_com_rotated = R @ protein_com
 
-        if protein_com_rotated[0] < 0.0:
-            # Flip the X axis row (row 0) to push protein to positive X
-            R[0] *= -1.0
+        theta = np.arctan2(
+            protein_com_rotated[1],
+            protein_com_rotated[0]
+        )
+
+        R = rotation_about_z(-theta) @ R
 
     return R
 
