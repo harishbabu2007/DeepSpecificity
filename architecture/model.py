@@ -64,20 +64,22 @@ class DeepSpecificityWithShape(nn.Module):
         self.dna_cross_norm = nn.LayerNorm(d_model)
         self.dna_dna_shape_cross_norm = nn.LayerNorm(d_model)
 
+        self.dropout_rate = 0.2
+
         self.dna_mlp = nn.Sequential(
-            nn.Linear(d_model, d_model * 4),
+            nn.Linear(d_model, d_model * 2),
             nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(d_model * 4, d_model),
-            nn.Dropout(0.1),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(d_model * 2, d_model),
+            nn.Dropout(self.dropout_rate),
         )
 
         self.dna_mlp_2 = nn.Sequential(
-            nn.Linear(d_model, d_model * 4),
+            nn.Linear(d_model, d_model * 2),
             nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(d_model * 4, d_model),
-            nn.Dropout(0.1),
+            nn.Dropout(self.dropout_rate),
+            nn.Linear(d_model * 2, d_model),
+            nn.Dropout(self.dropout_rate),
         )
 
         self.dna_mlp_norm = nn.LayerNorm(d_model)
@@ -100,7 +102,7 @@ class DeepSpecificityWithShape(nn.Module):
             nn.ReLU(),
             nn.Linear(self.hidden_size, self.hidden_size),
             nn.ReLU(),
-            nn.Dropout(p=0.1),
+            nn.Dropout(p=self.dropout_rate),
             nn.Linear(self.hidden_size, 4),
         )
 
