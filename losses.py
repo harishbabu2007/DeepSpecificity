@@ -27,7 +27,7 @@ def masked_ppm_loss(logits, target_pwm, mask):
 
 
 def masked_ppm_loss_with_one_hot(
-    logits, target_pwm, mask, pwm_present, flank_weight=0.8, no_pwm_weight=0.6
+    logits, target_pwm, mask, pwm_present, flank_weight=0.3, no_pwm_weight=0.5
 ):
     logits = logits.squeeze(0)
     log_probs = F.log_softmax(logits, dim=-1)
