@@ -48,6 +48,21 @@ def compute_jsd(pred_ppm, target_ppm, eps=1e-9):
     return float(np.mean(jsd_per_pos))
 
 
+def compute_mae(pred_ppm, target_ppm):
+    """
+    Mean Absolute Error between predicted and target PPM.
+
+    Inputs:
+        pred_ppm   : [Nd,4]
+        target_ppm : [Nd,4]
+
+    Returns:
+        scalar MAE
+    """
+
+    return float(np.mean(np.abs(pred_ppm - target_ppm)))
+
+
 def compute_motif_recovery(pred_ppm, target_ppm, mask):
     """
     For PWM samples only. At each aligned (masked) position, checks whether
@@ -115,6 +130,10 @@ def validate(checkpoint_path, val_data_dir):
     nopwm_pcc = []
     nopwm_jsd = []
 
+    all_mae = []
+    pwm_mae = []
+    nopwm_mae = []
+
     with torch.no_grad():
         pbar = tqdm(val_loader, desc="Validating")
 
@@ -167,9 +186,14 @@ def validate(checkpoint_path, val_data_dir):
                     compute_jsd(pred_fwd_ppm, tgt_fwd_np)
                     + compute_jsd(pred_rev_ppm, tgt_rev_np)
                 ) / 2
+                mae = (
+                    compute_mae(pred_fwd_ppm, tgt_fwd_np)
+                    + compute_mae(pred_rev_ppm, tgt_rev_np)
+                ) / 2
 
                 all_pcc.append(pcc)
                 all_jsd.append(jsd)
+                all_mae.append(mae)
                 total_loss += loss
                 count_all += 1
 
@@ -178,6 +202,7 @@ def validate(checkpoint_path, val_data_dir):
                     count_pwm += 1
                     pwm_pcc.append(pcc)
                     pwm_jsd.append(jsd)
+                    pwm_mae.append(mae)
 
                     rec_fwd = compute_motif_recovery(
                         pred_fwd_ppm, tgt_fwd_np, mask_fwd_np
@@ -193,9 +218,19 @@ def validate(checkpoint_path, val_data_dir):
                     count_nopwm += 1
                     nopwm_pcc.append(pcc)
                     nopwm_jsd.append(jsd)
+                    nopwm_mae.append(mae)
 
     def safe_mean(lst):
         return float(np.mean(lst)) if lst else float("nan")
+    
+    def safe_median(lst):
+        return float(np.median(lst)) if lst else float("nan")
+
+    def safe_min(lst):
+        return float(np.min(lst)) if lst else float("nan")
+
+    def safe_max(lst):
+        return float(np.max(lst)) if lst else float("nan")
 
     print("\n" + "=" * 60)
     print("  VALIDATION RESULTS")
@@ -208,9 +243,24 @@ def validate(checkpoint_path, val_data_dir):
     print("\n── Overall ──────────────────────────────────────────────")
     print(f"  Loss (avg)           : {total_loss / max(count_all, 1):.6f}")
     print(
-        f"  PCC  (avg)           : {safe_mean(all_pcc):.4f}   "
-        f"(higher is better, max 1.0)"
+        f"  MAE  (avg)           : {safe_mean(all_mae):.4f}"
     )
+
+    print(
+        f"  MAE  (median)        : {safe_median(all_mae):.4f}"
+    )
+
+    print(
+        f"  MAE  (min)           : {safe_min(all_mae):.4f}"
+    )
+
+    print(
+        f"  MAE  (max)           : {safe_max(all_mae):.4f}"
+    )
+    # print(
+    #     f"  PCC  (avg)           : {safe_mean(all_pcc):.4f}   "
+    #     f"(higher is better, max 1.0)"
+    # )
     print(
         f"  JSD  (avg)           : {safe_mean(all_jsd):.4f}   "
         f"(lower is better,  min 0.0)"
@@ -218,7 +268,11 @@ def validate(checkpoint_path, val_data_dir):
 
     print("\n── PWM samples only ─────────────────────────────────────")
     print(f"  Loss                 : {total_loss_pwm / max(count_pwm, 1):.6f}")
-    print(f"  PCC                  : {safe_mean(pwm_pcc):.4f}")
+    print(f"  MAE                  : {safe_mean(pwm_mae):.4f}")
+    print(f"  MAE (median)         : {safe_median(pwm_mae):.4f}")
+    print(f"  MAE (min)            : {safe_min(pwm_mae):.4f}")
+    print(f"  MAE (max)            : {safe_max(pwm_mae):.4f}")
+    # print(f"  PCC                  : {safe_mean(pwm_pcc):.4f}")
     print(f"  JSD                  : {safe_mean(pwm_jsd):.4f}")
     print(
         f"  Motif Recovery       : {safe_mean(pwm_recovery):.4f}   "
@@ -227,7 +281,11 @@ def validate(checkpoint_path, val_data_dir):
 
     print("\n── No-PWM samples only ──────────────────────────────────")
     print(f"  Loss                 : {total_loss_nopwm / max(count_nopwm, 1):.6f}")
-    print(f"  PCC                  : {safe_mean(nopwm_pcc):.4f}")
+    print(f"  MAE                  : {safe_mean(nopwm_mae):.4f}")
+    print(f"  MAE (median)         : {safe_median(nopwm_mae):.4f}")
+    print(f"  MAE (min)            : {safe_min(nopwm_mae):.4f}")
+    print(f"  MAE (max)            : {safe_max(nopwm_mae):.4f}")
+    # print(f"  PCC                  : {safe_mean(nopwm_pcc):.4f}")
     print(f"  JSD                  : {safe_mean(nopwm_jsd):.4f}")
 
     print("\n" + "=" * 60 + "\n")
