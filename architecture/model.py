@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 from architecture.embedding import ProteinEncoderWithPE, DNAEncoderWithPE
+from architecture.cnn_block import CNNBlock
 
 
 class DeepSpecificityWithShape(nn.Module):
@@ -90,14 +91,17 @@ class DeepSpecificityWithShape(nn.Module):
             num_layers=n_enc_pwm,
         )
 
+        self.hidden_size = d_model
+
+        self.conv_block = CNNBlock(d_model, self.hidden_size)
+
         self.pwm_head = nn.Sequential(
-            nn.Linear(d_model, d_model),
+            nn.Linear(self.hidden_size, self.hidden_size),
             nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(d_model, d_model // 2),
+            nn.Linear(self.hidden_size, self.hidden_size),
             nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(d_model // 2, 4),
+            nn.Dropout(p=0.1),
+            nn.Linear(self.hidden_size, 4),
         )
 
     def forward(self, dna_features, dna_shape_features, protein_features):
@@ -128,6 +132,7 @@ class DeepSpecificityWithShape(nn.Module):
         dna_embedding = self.dna_mlp_norm_2(dna_embedding + self.dna_mlp_2(dna_embedding))
 
         dna_embedding = self.pwm_encoder(dna_embedding)
+        dna_embedding = dna_embedding + self.conv_block(dna_embedding)
         pwm_logits = self.pwm_head(dna_embedding)
 
         return pwm_logits
