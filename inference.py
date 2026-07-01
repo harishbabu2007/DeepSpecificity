@@ -26,6 +26,7 @@ from preprocessing.dna_features import generate_dna_features
 from preprocessing.protein_features import generate_protein_features
 from preprocessing.bond_matrix import generate_bond_matrix
 from preprocessing.get_shape_features import get_dna_shape_features
+from preprocessing.get_pwm import generate_protein_dna_distance_matrix
 
 from architecture.model import DeepSpecificityWithShape
 from config import *
@@ -83,7 +84,7 @@ def preprocess(pdb_path, device, nohb):
         structure, protein_residues, dna_pairs = load_and_validate(hydrogenated_pdb)
         centroid  = compute_complex_centroid(protein_residues, dna_pairs)
         rotation  = compute_canonical_rotation(protein_residues, dna_pairs, centroid)
-        
+
         dna_features = generate_dna_features(
             dna_pairs,
             protein_residues,
@@ -97,7 +98,12 @@ def preprocess(pdb_path, device, nohb):
             centroid,
             rotation=rotation
         )
-        
+
+        distance_matrix = generate_protein_dna_distance_matrix(
+            protein_residues,
+            dna_pairs,
+        )
+
         if nohb:
             bond_matrix = torch.zeros((len(protein_residues), len(dna_pairs)))
         else:
@@ -120,6 +126,7 @@ def preprocess(pdb_path, device, nohb):
             device
         ),
         "bond_matrix": torch.tensor(bond_matrix, dtype=torch.uint8).to(device),
+        "distance_matrix": torch.tensor(distance_matrix, dtype=torch.float32).to(device),
         "protein_labels": protein_labels,
         "dna_labels": dna_labels,
     }
@@ -153,16 +160,18 @@ def inference_model_shape(data, device, checkpoint_path, amap):
     )
 
     protein_features = data["protein_features"]
+    distance_matrix = data["distance_matrix"]
 
     protein_features = protein_features.unsqueeze(0)
     dna_fwd = dna_fwd.unsqueeze(0)
     dna_rc = dna_rc.unsqueeze(0)
     dna_shape_features_fwd = dna_shape_features_fwd.unsqueeze(0)
     dna_shape_features_rev = dna_shape_features_rev.unsqueeze(0)
+    distance_matrix = distance_matrix.unsqueeze(0)
 
     with torch.no_grad():
-        pred_fwd = model(dna_fwd, dna_shape_features_fwd, protein_features)
-        pred_rc = model(dna_rc, dna_shape_features_rev, protein_features)
+        pred_fwd = model(dna_fwd, dna_shape_features_fwd, protein_features, distance_matrix)
+        pred_rc = model(dna_rc, dna_shape_features_rev, protein_features, distance_matrix)
 
         pred_fwd = pred_fwd.squeeze(0)
         pred_rc = pred_rc.squeeze(0)

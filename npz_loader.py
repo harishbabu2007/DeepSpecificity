@@ -8,6 +8,7 @@ def get_data_from_npz(file_path: str):
             data["dna_shape_features"],
             data["protein_features"],
             data["bond_matrix"],
+            data["distance_matrix"],
             data["protein_labels"],
             data["dna_labels"],
             data["pwm_present"],

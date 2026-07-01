@@ -142,6 +142,8 @@ def validate(checkpoint_path, val_data_dir):
                 prot = item["protein_features"].to(device)
                 dna = item["dna_features"].to(device)
                 shape = item["dna_shape_features"].to(device)
+                distance_matrix = item["distance_matrix"].to(device)
+                distance_matrix = distance_matrix.unsqueeze(0)
 
                 dna_fwd, dna_rc = split_dna_features_no_seq(dna)
                 shape_fwd, shape_rev = split_dna_shape_features(shape)

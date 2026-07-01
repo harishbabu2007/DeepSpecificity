@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 from architecture.embedding import ProteinEncoderWithPE, DNAEncoderWithPE
 from architecture.cnn_block import CNNBlock
-
+from architecture.biased_attention import BiasedMultiheadAttention
 
 class DeepSpecificityWithShape(nn.Module):
     def __init__(
@@ -21,6 +21,7 @@ class DeepSpecificityWithShape(nn.Module):
     ):
 
         super(DeepSpecificityWithShape, self).__init__()
+        self.dropout_rate = 0.2
 
         self.protein_embedder = ProteinEncoderWithPE(len_prot_features, d_model)
         self.dna_embedder = DNAEncoderWithPE(len_dna_features, d_model)
@@ -53,18 +54,29 @@ class DeepSpecificityWithShape(nn.Module):
         )
 
         # all cross attentions
-        self.dna_to_protein_attention = nn.MultiheadAttention(
-            embed_dim=d_model, num_heads=n_cross_att_heads, batch_first=True
-        )
+        # self.dna_to_protein_attention = nn.MultiheadAttention(
+        #     embed_dim=d_model, num_heads=n_cross_att_heads, batch_first=True
+        # )
 
-        self.dna_to_dna_shape_attention = nn.MultiheadAttention(
-            embed_dim=d_model, num_heads=n_cross_att_heads, batch_first=True
+        self.q_proj = nn.Linear(d_model, d_model)
+        self.k_proj = nn.Linear(d_model, d_model)
+        self.v_proj = nn.Linear(d_model, d_model)
+
+        self.out_proj = nn.Linear(d_model, d_model)
+
+        self.scale = d_model ** -0.5
+
+        # self.dna_to_dna_shape_attention = nn.MultiheadAttention(
+        #     embed_dim=d_model, num_heads=n_cross_att_heads, batch_first=True
+        # )
+        self.dna_to_protein_attention = BiasedMultiheadAttention(
+            embed_dim=d_model,
+            num_heads=n_cross_att_heads,
+            dropout=self.dropout_rate,
         )
 
         self.dna_cross_norm = nn.LayerNorm(d_model)
-        self.dna_dna_shape_cross_norm = nn.LayerNorm(d_model)
-
-        self.dropout_rate = 0.2
+        # self.dna_dna_shape_cross_norm = nn.LayerNorm(d_model)
 
         self.dna_mlp = nn.Sequential(
             nn.Linear(d_model, d_model * 2),
@@ -74,16 +86,22 @@ class DeepSpecificityWithShape(nn.Module):
             nn.Dropout(self.dropout_rate),
         )
 
-        self.dna_mlp_2 = nn.Sequential(
-            nn.Linear(d_model, d_model * 2),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_rate),
-            nn.Linear(d_model * 2, d_model),
-            nn.Dropout(self.dropout_rate),
-        )
+        # self.dna_mlp_2 = nn.Sequential(
+        #     nn.Linear(d_model, d_model * 2),
+        #     nn.ReLU(),
+        #     nn.Dropout(self.dropout_rate),
+        #     nn.Linear(d_model * 2, d_model),
+        #     nn.Dropout(self.dropout_rate),
+        # )
 
         self.dna_mlp_norm = nn.LayerNorm(d_model)
-        self.dna_mlp_norm_2 = nn.LayerNorm(d_model)
+        # self.dna_mlp_norm_2 = nn.LayerNorm(d_model)
+
+        self.dna_shape_fusion = nn.Sequential(
+            nn.Linear(2 * d_model, d_model),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_rate),
+        )
 
         # final pwm encoder and mlp
         self.pwm_encoder = nn.TransformerEncoder(
@@ -106,7 +124,13 @@ class DeepSpecificityWithShape(nn.Module):
             nn.Linear(self.hidden_size, 4),
         )
 
-    def forward(self, dna_features, dna_shape_features, protein_features):
+    def forward(
+        self,
+        dna_features,
+        dna_shape_features,
+        protein_features,
+        distance_matrix,
+    ):
         dna_features = self.dna_input_norm(dna_features)
         dna_shape_features = self.shape_input_norm(dna_shape_features)
         protein_features = self.protein_input_norm(protein_features)
@@ -119,19 +143,32 @@ class DeepSpecificityWithShape(nn.Module):
         dna_embedding = self.transformer_encoder_dna(dna_embedding)
         dna_shape_embedding = self.transformer_encoder_dna_shape(dna_shape_embedding)
 
-        dna_before_cross = dna_embedding
-        dna_context, _ = self.dna_to_protein_attention(
-            query=dna_before_cross, key=protein_embedding, value=protein_embedding
+        dna_context = self.dna_to_protein_attention(
+            query=dna_embedding,
+            key=protein_embedding,
+            value=protein_embedding,
+            distance_matrix=distance_matrix,
         )
-        dna_embedding = self.dna_cross_norm(dna_embedding + dna_context)
-        dna_embedding = self.dna_mlp_norm(dna_embedding + self.dna_mlp(dna_embedding))
 
-        dna_before_cross = dna_embedding
-        dna_context, _ = self.dna_to_dna_shape_attention(
-            query=dna_before_cross, key=dna_shape_embedding, value=dna_shape_embedding
+        dna_embedding = self.dna_cross_norm(
+            dna_embedding + dna_context
         )
-        dna_embedding = self.dna_dna_shape_cross_norm(dna_embedding + dna_context)
-        dna_embedding = self.dna_mlp_norm_2(dna_embedding + self.dna_mlp_2(dna_embedding))
+
+        dna_embedding = self.dna_mlp_norm(
+            dna_embedding + self.dna_mlp(dna_embedding)
+        )
+
+        dna_embedding = torch.cat(
+            [
+                dna_embedding,
+                dna_shape_embedding,
+            ],
+            dim=-1,
+        )
+
+        dna_embedding = self.dna_shape_fusion(
+            dna_embedding
+        )
 
         dna_embedding = self.pwm_encoder(dna_embedding)
         dna_embedding = dna_embedding + self.conv_block(dna_embedding)

@@ -5,6 +5,8 @@ from pyjaspar import jaspardb
 import sys
 
 from constants import DNA_BACKBONE_ORDER, COORDINATE_SCALE_FACTOR, DNA_FEATURE_SIZE
+from dna_features import get_base_letter
+from dna_definitions import BASE_HEAVY_ATOMS
 
 
 def parse_raw_fallback_file(file_path, is_cisbp=False):
@@ -318,3 +320,82 @@ def generate_spatial_proximity_mask(
         rev_proximity_mask,
     )
 
+
+def generate_protein_dna_distance_matrix(
+    protein_residues,
+    dna_pairs,
+):
+    """
+    Computes the minimum heavy-atom distance between every
+    DNA base pair and every protein residue.
+
+    DNA atoms considered:
+        - DNA_BACKBONE_ORDER
+        - BASE_HEAVY_ATOMS (currently N9 for A/G, N1 for C/T)
+
+    Returns
+    -------
+    distance_matrix : (Nd, Nprotein)
+    """
+
+    distance_matrix = []
+
+    for forward_residue, reverse_residue in dna_pairs:
+
+        dna_atoms = []
+
+        # ----------------------------------------------------------
+        # Collect the DNA atoms used by the feature extractor
+        # ----------------------------------------------------------
+
+        for residue in [forward_residue, reverse_residue]:
+
+            if residue is None:
+                continue
+
+            # Backbone atoms
+            for atom_name in DNA_BACKBONE_ORDER:
+
+                if atom_name in residue:
+                    dna_atoms.append(residue[atom_name].coord.astype(np.float32))
+
+            # Base atoms (N9 / N1 currently)
+            base_letter = get_base_letter(residue)
+
+            for atom_name in BASE_HEAVY_ATOMS[base_letter]:
+
+                if atom_name in residue:
+                    dna_atoms.append(residue[atom_name].coord.astype(np.float32))
+
+        # ----------------------------------------------------------
+        # Compute minimum distance to every protein residue
+        # ----------------------------------------------------------
+
+        row = []
+
+        for residue in protein_residues:
+
+            min_distance = float("inf")
+
+            for protein_atom in residue:
+
+                if protein_atom.element == "H":
+                    continue
+
+                protein_coord = protein_atom.coord.astype(np.float32)
+
+                for dna_coord in dna_atoms:
+
+                    dist = np.linalg.norm(protein_coord - dna_coord)
+
+                    if dist < min_distance:
+                        min_distance = dist
+
+            row.append(min_distance)
+
+        distance_matrix.append(row)
+
+    return np.asarray(
+        distance_matrix,
+        dtype=np.float32,
+    )

@@ -82,6 +82,7 @@ for epoch in range(EPOCHS):
             protein_features = item["protein_features"].to(device)
             dna_features = item["dna_features"].to(device)
             dna_shape_features = item["dna_shape_features"].to(device)
+            distance_matrix = item["distance_matrix"].to(device)
 
             dna_fwd, dna_rc = split_dna_features_no_seq(dna_features)
             dna_shape_features_fwd, dna_shape_features_rev = split_dna_shape_features(dna_shape_features)
@@ -91,9 +92,14 @@ for epoch in range(EPOCHS):
             dna_rc = dna_rc.unsqueeze(0)
             dna_shape_features_fwd = dna_shape_features_fwd.unsqueeze(0)
             dna_shape_features_rev = dna_shape_features_rev.unsqueeze(0)
+            distance_matrix = distance_matrix.unsqueeze(0)
 
-            pred_fwd = model(dna_fwd, dna_shape_features_fwd, protein_features)
-            pred_rc = model(dna_rc, dna_shape_features_rev, protein_features)
+            pred_fwd = model(
+                dna_fwd, dna_shape_features_fwd, protein_features, distance_matrix
+            )
+            pred_rc = model(
+                dna_rc, dna_shape_features_rev, protein_features, distance_matrix
+            )
 
             loss_fwd = masked_ppm_loss_with_one_hot(
                 pred_fwd,

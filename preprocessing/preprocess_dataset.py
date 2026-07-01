@@ -12,7 +12,7 @@ from dna_features import generate_dna_features
 from protein_features import generate_protein_features
 from bond_matrix import generate_bond_matrix
 from npz_writer import save_npz, build_output_path
-from get_pwm import get_hybrid_pwm, build_jaspar_index, generate_spatial_proximity_mask
+from get_pwm import get_hybrid_pwm, build_jaspar_index, generate_spatial_proximity_mask, generate_protein_dna_distance_matrix
 from constants import MAX_PROTEIN_LENGTH
 from get_shape_features import get_dna_shape_features
 import json
@@ -196,10 +196,10 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
     try:
         structure, protein_residues, dna_pairs = load_and_validate(hydrogenated_pdb)
         centroid = compute_complex_centroid(protein_residues, dna_pairs)
-        
+
         # --- NEW: compute canonical rotation once, pass it to both feature generators
         rotation = compute_canonical_rotation(protein_residues, dna_pairs, centroid)
-        
+
         dna_features = generate_dna_features(
             dna_pairs,
             protein_residues,
@@ -214,9 +214,12 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             rotation=rotation
         )
 
-
         # bond_matrix = generate_bond_matrix(protein_residues, dna_pairs)
         bond_matrix_array = np.array([])  # no bond matrix for now
+        distance_matrix = generate_protein_dna_distance_matrix(
+            protein_residues,
+            dna_pairs,
+        )
 
         protein_labels = build_protein_labels(protein_residues)
         dna_labels = build_dna_labels(dna_pairs)
@@ -313,6 +316,7 @@ def process_single_pdb(pdb_path, output_dir, hydrogenated_dir, annotations, jasp
             dna_shape_features,
             protein_features,
             bond_matrix_array,
+            distance_matrix,
             protein_labels,
             dna_labels,
             pwm_present,
